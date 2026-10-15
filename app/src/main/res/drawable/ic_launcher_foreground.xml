@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Clipboard / Tablet base -->
+    <path
+        android:fillColor="#E6FFFFFF"
+        android:pathData="M34,28 h40 c3.3,0 6,2.7 6,6 v46 c0,3.3 -2.7,6 -6,6 h-40 c-3.3,0 -6,-2.7 -6,-6 v-46 c0,-3.3 2.7,-6 6,-6 z" />
+
+    <!-- Clipboard clip top -->
+    <path
+        android:fillColor="#14B8A6"
+        android:pathData="M44,24 h20 c1.1,0 2,0.9 2,2 v4 c0,1.1 -0.9,2 -2,2 h-20 c-1.1,0 -2,-0.9 -2,-2 v-4 c0,-1.1 0.9,-2 2,-2 z" />
+
+    <!-- Medical Cross in Center -->
+    <path
+        android:fillColor="#0D9488"
+        android:pathData="M51,40 h6 v8 h8 v6 h-8 v8 h-6 v-8 h-8 v-6 h8 z" />
+
+    <!-- Checklist lines -->
+    <path
+        android:fillColor="#0F766E"
+        android:pathData="M38,67 h22 v3 h-22 z" />
+    <path
+        android:fillColor="#0F766E"
+        android:pathData="M38,73 h14 v3 h-14 z" />
+
+    <!-- Medicine Capsule badge on bottom-right -->
+    <!-- Pill left half (Teal) -->
+    <path
+        android:fillColor="#2DD4BF"
+        android:pathData="M64,68 a6,6 0 0,0 6,6 l6,0 l0,-12 l-6,0 a6,6 0 0,0 -6,6 z" />
+    <!-- Pill right half (Orange/Amber accent) -->
+    <path
+        android:fillColor="#F59E0B"
+        android:pathData="M76,62 l6,0 a6,6 0 0,1 0,12 l-6,0 z" />
+
+</vector>
