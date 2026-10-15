@@ -24,7 +24,6 @@ android {
 
   // Do not remove or modify these signingConfigs. They are necessary for building, installing,
   // and updating Android apps in AI Studio.
-  }
 
   buildTypes {
     release {
@@ -38,8 +37,6 @@ android {
     debug {
       // Do not remove or modify this signingConfig assignment. It is necessary for Android apps in
       // AI Studio.
-      
-    }
   }
   compileOptions {
     sourceCompatibility = JavaVersion.VERSION_11
@@ -54,7 +51,6 @@ android {
     includeInApk = false
     includeInBundle = true
   }
-}
 
 // Configure the Secrets Gradle Plugin to use .env and .env.example files
 // to match the convention used in Web projects.
