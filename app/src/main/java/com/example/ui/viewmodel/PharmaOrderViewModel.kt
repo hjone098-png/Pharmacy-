@@ -164,7 +164,94 @@ class PharmaOrderViewModel(application: Application) : AndroidViewModel(applicat
         )
 
     init {
-        // App starts with a clean catalog for user-added medicines
+        // App initializes with the medications specified by the user
+        viewModelScope.launch {
+            if (medicationRepository.getCount() == 0) {
+                val defaultList = listOf(
+                    Medication(
+                        tradeName = "جنى شراب",
+                        scientificName = "Herbal Cough & Throat Syrup",
+                        category = "شراب وأدوية سائلة",
+                        dosageForm = "شراب",
+                        packageUnit = "علبة",
+                        unitPrice = 1500.0,
+                        currentStock = 50,
+                        minStockAlert = 10
+                    ),
+                    Medication(
+                        tradeName = "كوفستوب شراب",
+                        scientificName = "Dextromethorphan + Chlorpheniramine",
+                        category = "شراب وأدوية سائلة",
+                        dosageForm = "شراب",
+                        packageUnit = "علبة",
+                        unitPrice = 2000.0,
+                        currentStock = 40,
+                        minStockAlert = 10
+                    ),
+                    Medication(
+                        tradeName = "اوترينوز قطرة صغار ٠.٠٥٪",
+                        scientificName = "Oxymetazoline HCl 0.05% Paediatric",
+                        category = "قطرات ومحاليل",
+                        dosageForm = "قطرة أنفية",
+                        packageUnit = "علبة",
+                        unitPrice = 1250.0,
+                        currentStock = 30,
+                        minStockAlert = 5
+                    ),
+                    Medication(
+                        tradeName = "اوترينوز قطرة كبار ٠.١٪",
+                        scientificName = "Oxymetazoline HCl 0.1% Adult",
+                        category = "قطرات ومحاليل",
+                        dosageForm = "قطرة أنفية",
+                        packageUnit = "علبة",
+                        unitPrice = 1500.0,
+                        currentStock = 45,
+                        minStockAlert = 10
+                    ),
+                    Medication(
+                        tradeName = "بيبي كاز قطرة",
+                        scientificName = "Simethicone Infantile Drops",
+                        category = "قطرات ومحاليل",
+                        dosageForm = "قطرة فموية",
+                        packageUnit = "علبة",
+                        unitPrice = 1750.0,
+                        currentStock = 35,
+                        minStockAlert = 8
+                    ),
+                    Medication(
+                        tradeName = "ايكازول تحاميل",
+                        scientificName = "Econazole Nitrate Suppositories",
+                        category = "تحاميل ومراهم",
+                        dosageForm = "تحاميل",
+                        packageUnit = "باكيت",
+                        unitPrice = 2250.0,
+                        currentStock = 25,
+                        minStockAlert = 5
+                    ),
+                    Medication(
+                        tradeName = "نازفرين قطرة كبار ١٪",
+                        scientificName = "Naphazoline HCl 1% Adult",
+                        category = "قطرات ومحاليل",
+                        dosageForm = "قطرة أنفية",
+                        packageUnit = "علبة",
+                        unitPrice = 1500.0,
+                        currentStock = 30,
+                        minStockAlert = 5
+                    ),
+                    Medication(
+                        tradeName = "دياراستوب حب كبير",
+                        scientificName = "Loperamide HCl + Furazolidone",
+                        category = "حبوب وكبسولات",
+                        dosageForm = "حبوب",
+                        packageUnit = "شريط",
+                        unitPrice = 1000.0,
+                        currentStock = 60,
+                        minStockAlert = 15
+                    )
+                )
+                defaultList.forEach { medicationRepository.insert(it) }
+            }
+        }
     }
 
     // Navigation

@@ -2,14 +2,10 @@ package com.example.ui.components
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Assignment
-import androidx.compose.material.icons.filled.History
-import androidx.compose.material.icons.filled.Inventory2
-import androidx.compose.material.icons.filled.LocalPharmacy
+import androidx.compose.material.icons.filled.ReceiptLong
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material.icons.outlined.Assignment
-import androidx.compose.material.icons.outlined.History
-import androidx.compose.material.icons.outlined.Inventory2
-import androidx.compose.material.icons.outlined.LocalPharmacy
+import androidx.compose.material.icons.outlined.ReceiptLong
 import androidx.compose.material.icons.outlined.ShoppingCart
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
@@ -30,10 +26,19 @@ import com.example.ui.navigation.Screen
 import com.example.ui.theme.PrimaryTeal
 import com.example.ui.theme.TealContainer
 
+/**
+ * Bottom navigation bar with ONLY:
+ * 1. طلب أدوية (Order / Medicine selection)
+ * 2. ملخص الطلب (Order Summary)
+ * 3. قائمة الطلبات المسجلة (Registered orders list)
+ *
+ * (Inventory and Pharmacy profile removed per user request)
+ */
 @Composable
 fun PharmaBottomBar(
     currentScreen: Screen,
     cartItemCount: Int,
+    registeredOrdersCount: Int = 0,
     onNavigate: (Screen) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -42,7 +47,7 @@ fun PharmaBottomBar(
         containerColor = MaterialTheme.colorScheme.surface,
         tonalElevation = 6.dp
     ) {
-        // 1. Order / Catalog
+        // 1. طلب أدوية
         NavigationBarItem(
             selected = currentScreen == Screen.OrderCreation,
             onClick = { onNavigate(Screen.OrderCreation) },
@@ -55,8 +60,8 @@ fun PharmaBottomBar(
             label = {
                 Text(
                     text = "طلب أدوية",
-                    fontSize = 11.sp,
-                    fontWeight = if (currentScreen == Screen.OrderCreation) FontWeight.Bold else FontWeight.Normal
+                    fontSize = 12.sp,
+                    fontWeight = if (currentScreen == Screen.OrderCreation) FontWeight.Bold else FontWeight.Medium
                 )
             },
             colors = NavigationBarItemDefaults.colors(
@@ -67,7 +72,7 @@ fun PharmaBottomBar(
             modifier = Modifier.testTag("nav_order_creation")
         )
 
-        // 2. Order Summary
+        // 2. ملخص الطلب
         NavigationBarItem(
             selected = currentScreen == Screen.OrderSummary,
             onClick = { onNavigate(Screen.OrderSummary) },
@@ -86,15 +91,15 @@ fun PharmaBottomBar(
                 ) {
                     Icon(
                         imageVector = if (currentScreen == Screen.OrderSummary) Icons.Filled.Assignment else Icons.Outlined.Assignment,
-                        contentDescription = "ملخص الطلبية"
+                        contentDescription = "ملخص الطلب"
                     )
                 }
             },
             label = {
                 Text(
                     text = "ملخص الطلب",
-                    fontSize = 11.sp,
-                    fontWeight = if (currentScreen == Screen.OrderSummary) FontWeight.Bold else FontWeight.Normal
+                    fontSize = 12.sp,
+                    fontWeight = if (currentScreen == Screen.OrderSummary) FontWeight.Bold else FontWeight.Medium
                 )
             },
             colors = NavigationBarItemDefaults.colors(
@@ -105,71 +110,34 @@ fun PharmaBottomBar(
             modifier = Modifier.testTag("nav_order_summary")
         )
 
-        // 3. Inventory Management
-        NavigationBarItem(
-            selected = currentScreen == Screen.Inventory,
-            onClick = { onNavigate(Screen.Inventory) },
-            icon = {
-                Icon(
-                    imageVector = if (currentScreen == Screen.Inventory) Icons.Filled.Inventory2 else Icons.Outlined.Inventory2,
-                    contentDescription = "المخزون"
-                )
-            },
-            label = {
-                Text(
-                    text = "المخزون",
-                    fontSize = 11.sp,
-                    fontWeight = if (currentScreen == Screen.Inventory) FontWeight.Bold else FontWeight.Normal
-                )
-            },
-            colors = NavigationBarItemDefaults.colors(
-                selectedIconColor = PrimaryTeal,
-                selectedTextColor = PrimaryTeal,
-                indicatorColor = TealContainer
-            ),
-            modifier = Modifier.testTag("nav_inventory")
-        )
-
-        // 4. Pharmacy & Location Profile
-        NavigationBarItem(
-            selected = currentScreen == Screen.PharmacyProfile,
-            onClick = { onNavigate(Screen.PharmacyProfile) },
-            icon = {
-                Icon(
-                    imageVector = if (currentScreen == Screen.PharmacyProfile) Icons.Filled.LocalPharmacy else Icons.Outlined.LocalPharmacy,
-                    contentDescription = "الصيدلية"
-                )
-            },
-            label = {
-                Text(
-                    text = "الصيدلية",
-                    fontSize = 11.sp,
-                    fontWeight = if (currentScreen == Screen.PharmacyProfile) FontWeight.Bold else FontWeight.Normal
-                )
-            },
-            colors = NavigationBarItemDefaults.colors(
-                selectedIconColor = PrimaryTeal,
-                selectedTextColor = PrimaryTeal,
-                indicatorColor = TealContainer
-            ),
-            modifier = Modifier.testTag("nav_profile")
-        )
-
-        // 5. Order History
+        // 3. قائمة الطلبات المسجلة
         NavigationBarItem(
             selected = currentScreen == Screen.OrderHistory,
             onClick = { onNavigate(Screen.OrderHistory) },
             icon = {
-                Icon(
-                    imageVector = if (currentScreen == Screen.OrderHistory) Icons.Filled.History else Icons.Outlined.History,
-                    contentDescription = "الأرشيف"
-                )
+                BadgedBox(
+                    badge = {
+                        if (registeredOrdersCount > 0) {
+                            Badge(
+                                containerColor = PrimaryTeal,
+                                contentColor = Color.White
+                            ) {
+                                Text("$registeredOrdersCount")
+                            }
+                        }
+                    }
+                ) {
+                    Icon(
+                        imageVector = if (currentScreen == Screen.OrderHistory) Icons.Filled.ReceiptLong else Icons.Outlined.ReceiptLong,
+                        contentDescription = "الطلبات المسجلة"
+                    )
+                }
             },
             label = {
                 Text(
-                    text = "الأرشيف",
-                    fontSize = 11.sp,
-                    fontWeight = if (currentScreen == Screen.OrderHistory) FontWeight.Bold else FontWeight.Normal
+                    text = "الطلبات المسجلة",
+                    fontSize = 12.sp,
+                    fontWeight = if (currentScreen == Screen.OrderHistory) FontWeight.Bold else FontWeight.Medium
                 )
             },
             colors = NavigationBarItemDefaults.colors(
@@ -177,8 +145,7 @@ fun PharmaBottomBar(
                 selectedTextColor = PrimaryTeal,
                 indicatorColor = TealContainer
             ),
-            modifier = Modifier.testTag("nav_history")
+            modifier = Modifier.testTag("nav_order_history")
         )
     }
 }
-

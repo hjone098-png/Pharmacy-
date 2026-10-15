@@ -21,6 +21,7 @@ import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.FabPosition
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -48,9 +49,7 @@ import com.example.ui.components.PharmaBottomBar
 import com.example.ui.components.PharmaTopBar
 import com.example.ui.navigation.Screen
 import com.example.ui.screens.history.OrderHistoryScreen
-import com.example.ui.screens.inventory.InventoryScreen
 import com.example.ui.screens.order.OrderCreationScreen
-import com.example.ui.screens.profile.PharmacyProfileScreen
 import com.example.ui.screens.summary.OrderSummaryScreen
 import com.example.ui.theme.MyApplicationTheme
 import com.example.ui.theme.PrimaryTeal
@@ -106,12 +105,14 @@ fun PharmaAppContent(viewModel: PharmaOrderViewModel) {
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
+        floatingActionButtonPosition = FabPosition.Start,
         topBar = {
             PharmaTopBar(
                 currentScreen = currentScreen,
-                pharmacyProfile = pharmacyProfile,
-                onNavigateTo = { viewModel.navigateTo(it) },
+                currentPharmacyName = currentPharmacyName,
+                currentPharmacyLocation = currentPharmacyLocation,
                 onStartNewOrderClick = { showPharmacyNameDialog = true },
+                onNavigateToOrders = { viewModel.navigateTo(Screen.OrderHistory) },
                 onClearAllMedications = { viewModel.clearAllMedications() }
             )
         },
@@ -119,6 +120,7 @@ fun PharmaAppContent(viewModel: PharmaOrderViewModel) {
             PharmaBottomBar(
                 currentScreen = currentScreen,
                 cartItemCount = cartItems.size,
+                registeredOrdersCount = orderHistory.size,
                 onNavigate = { viewModel.navigateTo(it) }
             )
         },
@@ -160,7 +162,10 @@ fun PharmaAppContent(viewModel: PharmaOrderViewModel) {
                     onClearCart = { viewModel.clearCart() },
                     onProceedToSummary = { selectedDepot ->
                         viewModel.setOrderDepotName(selectedDepot)
-                        viewModel.generateOrderSummary(selectedDepot)
+                        val order = viewModel.generateOrderSummary(selectedDepot)
+                        if (order != null) {
+                            viewModel.saveCurrentOrderToHistory(order)
+                        }
                         viewModel.navigateTo(Screen.OrderSummary)
                     },
                     onAddNewMedicationWithImage = { viewModel.addMedication(it) },
@@ -192,31 +197,6 @@ fun PharmaAppContent(viewModel: PharmaOrderViewModel) {
                 )
             }
 
-            Screen.Inventory -> {
-                InventoryScreen(
-                    medications = inventoryMeds,
-                    allMedicationsCount = allMeds.size,
-                    searchQuery = inventorySearchQuery,
-                    currentFilter = inventoryFilter,
-                    onSearchChange = { viewModel.setInventorySearchQuery(it) },
-                    onFilterChange = { viewModel.setInventoryFilter(it) },
-                    onAddMedication = { viewModel.addMedication(it) },
-                    onUpdateMedication = { viewModel.updateMedication(it) },
-                    onDeleteMedication = { viewModel.deleteMedication(it) },
-                    onQuickStockChange = { id, delta -> viewModel.updateQuickStock(id, delta) },
-                    modifier = Modifier.padding(innerPadding)
-                )
-            }
-
-            Screen.PharmacyProfile -> {
-                PharmacyProfileScreen(
-                    currentProfile = pharmacyProfile,
-                    onSaveProfile = { viewModel.updatePharmacyProfile(it) },
-                    onNavigateBack = { viewModel.navigateTo(Screen.OrderCreation) },
-                    onNavigateToCatalog = { viewModel.navigateTo(Screen.OrderCreation) }
-                )
-            }
-
             Screen.OrderHistory -> {
                 OrderHistoryScreen(
                     orders = orderHistory,
@@ -226,6 +206,10 @@ fun PharmaAppContent(viewModel: PharmaOrderViewModel) {
                     onShareOrder = { viewModel.shareOrderText(context, it) },
                     onNavigateBack = { viewModel.navigateTo(Screen.OrderCreation) }
                 )
+            }
+
+            else -> {
+                viewModel.navigateTo(Screen.OrderCreation)
             }
         }
     }

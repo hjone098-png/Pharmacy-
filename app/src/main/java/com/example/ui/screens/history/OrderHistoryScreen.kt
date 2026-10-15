@@ -18,10 +18,11 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.ReceiptLong
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.AlertDialog
@@ -34,6 +35,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -46,6 +48,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -58,6 +61,9 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+/**
+ * قائمة الطلبات المسجلة (التي يسجلها المستخدم فقط)
+ */
 @Composable
 fun OrderHistoryScreen(
     orders: List<OrderEntity>,
@@ -71,7 +77,23 @@ fun OrderHistoryScreen(
         onNavigateBack()
     }
 
+    var searchQuery by remember { mutableStateOf("") }
     var orderToDelete by remember { mutableStateOf<OrderEntity?>(null) }
+
+    val filteredOrders = remember(orders, searchQuery) {
+        if (searchQuery.isBlank()) {
+            orders
+        } else {
+            val q = searchQuery.trim().lowercase()
+            orders.filter { order ->
+                order.pharmacyName.lowercase().contains(q) ||
+                        order.fullAddress.lowercase().contains(q) ||
+                        order.supplierName.lowercase().contains(q) ||
+                        order.orderNumber.lowercase().contains(q) ||
+                        order.formattedCopyText.lowercase().contains(q)
+            }
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -79,7 +101,75 @@ fun OrderHistoryScreen(
             .background(MaterialTheme.colorScheme.background)
             .testTag("order_history_screen")
     ) {
-        if (orders.isEmpty()) {
+        // Header & Search Bar
+        Surface(
+            color = MaterialTheme.colorScheme.surface,
+            tonalElevation = 2.dp,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.ReceiptLong,
+                            contentDescription = null,
+                            tint = PrimaryTeal,
+                            modifier = Modifier.size(24.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "قائمة الطلبات المسجلة",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = TealContainer
+                    ) {
+                        Text(
+                            text = "${orders.size} طلبية",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = PrimaryTeal,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                        )
+                    }
+                }
+
+                if (orders.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(10.dp))
+                    OutlinedTextField(
+                        value = searchQuery,
+                        onValueChange = { searchQuery = it },
+                        placeholder = { Text("بحث باسم الصيدلية، الموقع، أو المذخر...") },
+                        leadingIcon = {
+                            Icon(Icons.Default.Search, contentDescription = null, tint = PrimaryTeal)
+                        },
+                        trailingIcon = {
+                            if (searchQuery.isNotEmpty()) {
+                                IconButton(onClick = { searchQuery = "" }) {
+                                    Icon(Icons.Default.Clear, contentDescription = "مسح")
+                                }
+                            }
+                        },
+                        singleLine = true,
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("search_history_orders")
+                    )
+                }
+            }
+        }
+
+        if (filteredOrders.isEmpty()) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -88,21 +178,21 @@ fun OrderHistoryScreen(
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Icon(
-                        imageVector = Icons.Default.History,
+                        imageVector = Icons.Default.ReceiptLong,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.outline,
                         modifier = Modifier.size(64.dp)
                     )
                     Spacer(modifier = Modifier.height(16.dp))
                     Text(
-                        text = "لا توجد طلبيات محفوظة في الأرشيف",
+                        text = if (searchQuery.isNotBlank()) "لا توجد نتائج مطابقة للبحث" else "لا توجد طلبات مسجلة بعد",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Spacer(modifier = Modifier.height(6.dp))
                     Text(
-                        text = "عند إنشاء طلبيات أدوية جديدة وحفظها، ستظهر هنا للرجوع إليها ونسخها في أي وقت.",
+                        text = if (searchQuery.isNotBlank()) "جرب البحث بكلمة أخرى" else "عند انتهاء وإصدار أي طلبية بالنموذج، ستسجل تلقائياً هنا في هذه القائمة.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.outline
                     )
@@ -114,7 +204,7 @@ fun OrderHistoryScreen(
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                items(orders, key = { it.id }) { order ->
+                items(filteredOrders, key = { it.id }) { order ->
                     OrderHistoryCard(
                         order = order,
                         onView = { onViewOrder(order) },
@@ -130,8 +220,8 @@ fun OrderHistoryScreen(
     if (orderToDelete != null) {
         AlertDialog(
             onDismissRequest = { orderToDelete = null },
-            title = { Text("حذف الطلبية من الأرشيف", fontWeight = FontWeight.Bold) },
-            text = { Text("هل أنت متأكد من حذف الطلبية رقم ${orderToDelete?.orderNumber}؟") },
+            title = { Text("حذف الطلبية من القائمة", fontWeight = FontWeight.Bold) },
+            text = { Text("هل أنت متأكد من حذف الطلبية الخاصة بـ (${orderToDelete?.pharmacyName})؟") },
             confirmButton = {
                 Button(
                     onClick = {
@@ -165,12 +255,13 @@ fun OrderHistoryCard(
     Card(
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         modifier = Modifier
             .fillMaxWidth()
             .testTag("history_card_${order.id}")
     ) {
         Column(modifier = Modifier.padding(14.dp)) {
+            // Header Row: Order Number + Urgency
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -213,8 +304,9 @@ fun OrderHistoryCard(
                 }
             }
 
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(6.dp))
 
+            // Pharmacy Name and Location
             val cleanPharm = if (order.pharmacyName.startsWith("ص.") || order.pharmacyName.startsWith("ص /") || order.pharmacyName.startsWith("صيدلية")) {
                 order.pharmacyName
             } else {
@@ -223,17 +315,18 @@ fun OrderHistoryCard(
             val locationPart = if (order.fullAddress.isNotBlank()) " / ${order.fullAddress}" else ""
             Text(
                 text = "$cleanPharm$locationPart",
-                fontSize = 13.sp,
+                fontSize = 14.sp,
                 fontWeight = FontWeight.Bold,
                 color = PrimaryTeal
             )
 
+            // Depot Name
             if (order.supplierName.isNotBlank()) {
                 val cleanDepot = if (order.supplierName.startsWith("مذخر")) order.supplierName else "مذخر ${order.supplierName}"
                 Text(
                     text = "($cleanDepot)",
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
                     color = SecondaryCyan
                 )
             }
@@ -244,15 +337,44 @@ fun OrderHistoryCard(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
-            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Text preview of the exact order model slip
+            Surface(
+                shape = RoundedCornerShape(10.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(10.dp)) {
+                    Text(
+                        text = "نموذج الطلبية المسجل:",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = PrimaryTeal
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = order.formattedCopyText,
+                        fontSize = 12.sp,
+                        fontFamily = FontFamily.Monospace,
+                        lineHeight = 18.sp,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
                     text = "${order.totalItemsCount} أصناف (${order.totalUnitsCount} عبوة)",
-                    fontSize = 13.sp,
+                    fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurface
                 )
@@ -275,7 +397,7 @@ fun OrderHistoryCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Button(
                         onClick = onCopy,
                         colors = ButtonDefaults.buttonColors(containerColor = PrimaryTeal),
@@ -284,7 +406,7 @@ fun OrderHistoryCard(
                     ) {
                         Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(14.dp))
                         Spacer(modifier = Modifier.width(4.dp))
-                        Text("نسخ", fontSize = 12.sp)
+                        Text("نسخ النموذج", fontSize = 12.sp)
                     }
 
                     OutlinedButton(
@@ -302,7 +424,7 @@ fun OrderHistoryCard(
                         shape = RoundedCornerShape(8.dp),
                         modifier = Modifier.height(34.dp)
                     ) {
-                        Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(14.dp))
+                        Icon(Icons.Default.Share, contentDescription = "مشاركة", modifier = Modifier.size(14.dp))
                     }
                 }
 
@@ -312,7 +434,7 @@ fun OrderHistoryCard(
                 ) {
                     Icon(
                         imageVector = Icons.Default.Delete,
-                        contentDescription = "حذف",
+                        contentDescription = "حذف الطلبية",
                         tint = MaterialTheme.colorScheme.error,
                         modifier = Modifier.size(18.dp)
                     )

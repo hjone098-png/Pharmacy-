@@ -13,12 +13,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.DeleteSweep
-import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.LocalPharmacy
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Store
+import androidx.compose.material.icons.filled.ReceiptLong
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -42,7 +40,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.data.local.PharmacyProfile
 import com.example.ui.navigation.Screen
 import com.example.ui.theme.PrimaryTeal
 import com.example.ui.theme.TealContainer
@@ -51,9 +48,10 @@ import com.example.ui.theme.TealContainer
 @Composable
 fun PharmaTopBar(
     currentScreen: Screen,
-    pharmacyProfile: PharmacyProfile?,
-    onNavigateTo: (Screen) -> Unit,
+    currentPharmacyName: String,
+    currentPharmacyLocation: String,
     onStartNewOrderClick: () -> Unit,
+    onNavigateToOrders: () -> Unit,
     onClearAllMedications: () -> Unit
 ) {
     var showMenu by remember { mutableStateOf(false) }
@@ -68,32 +66,32 @@ fun PharmaTopBar(
                     color = MaterialTheme.colorScheme.onSurface
                 )
 
-                // Quick Pharmacy & Location Chip
-                val pharmacyName = pharmacyProfile?.pharmacyName?.ifBlank { "إعداد بيانات الصيدلية" } ?: "تسجيل الصيدلية"
-                val city = pharmacyProfile?.city?.ifBlank { "" } ?: ""
+                // Quick Pharmacy & Location Chip (Clicking it directly opens the pharmacy & location dialog)
+                val displayName = currentPharmacyName.ifBlank { "السنار" }
+                val displayLocation = currentPharmacyLocation.ifBlank { "حي سومر" }
 
                 Surface(
                     shape = RoundedCornerShape(12.dp),
                     color = TealContainer.copy(alpha = 0.6f),
                     modifier = Modifier
-                        .clickable { onNavigateTo(Screen.PharmacyProfile) }
+                        .clickable { onStartNewOrderClick() }
                         .testTag("topbar_pharmacy_chip")
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Default.LocationOn,
                             contentDescription = null,
                             tint = PrimaryTeal,
-                            modifier = Modifier.size(12.dp)
+                            modifier = Modifier.size(13.dp)
                         )
-                        Spacer(modifier = Modifier.width(3.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
                         Text(
-                            text = if (city.isNotBlank()) "$pharmacyName ($city)" else pharmacyName,
+                            text = "ص. $displayName / $displayLocation (تعديل)",
                             fontSize = 11.sp,
-                            fontWeight = FontWeight.Medium,
+                            fontWeight = FontWeight.SemiBold,
                             color = PrimaryTeal,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
@@ -113,7 +111,7 @@ fun PharmaTopBar(
             ) {
                 Icon(
                     imageVector = Icons.Default.Add,
-                    contentDescription = "بدء طلبية جديدة",
+                    contentDescription = "بدء طلبية باسم الصيدلية والموقع",
                     tint = Color.White,
                     modifier = Modifier.size(20.dp)
                 )
@@ -121,31 +119,19 @@ fun PharmaTopBar(
 
             Spacer(modifier = Modifier.width(4.dp))
 
-            // Quick Profile Button
+            // Quick Registered Orders List Button
             IconButton(
-                onClick = { onNavigateTo(Screen.PharmacyProfile) },
-                modifier = Modifier.testTag("topbar_profile_btn")
+                onClick = onNavigateToOrders,
+                modifier = Modifier.testTag("topbar_orders_list_btn")
             ) {
                 Icon(
-                    imageVector = Icons.Default.Store,
-                    contentDescription = "بيانات الصيدلية",
+                    imageVector = Icons.Default.ReceiptLong,
+                    contentDescription = "قائمة الطلبات المسجلة",
                     tint = PrimaryTeal
                 )
             }
 
-            // Quick History Button
-            IconButton(
-                onClick = { onNavigateTo(Screen.OrderHistory) },
-                modifier = Modifier.testTag("topbar_history_btn")
-            ) {
-                Icon(
-                    imageVector = Icons.Default.History,
-                    contentDescription = "أرشيف الطلبيات",
-                    tint = PrimaryTeal
-                )
-            }
-
-            // More Menu (Reset Sample Data / Info)
+            // More Menu
             IconButton(
                 onClick = { showMenu = true },
                 modifier = Modifier.testTag("topbar_more_btn")
@@ -161,6 +147,26 @@ fun PharmaTopBar(
                 onDismissRequest = { showMenu = false }
             ) {
                 DropdownMenuItem(
+                    text = { Text("تعديل الصيدلية والموقع") },
+                    onClick = {
+                        showMenu = false
+                        onStartNewOrderClick()
+                    },
+                    leadingIcon = {
+                        Icon(Icons.Default.LocalPharmacy, contentDescription = null, tint = PrimaryTeal)
+                    }
+                )
+                DropdownMenuItem(
+                    text = { Text("قائمة الطلبات المسجلة") },
+                    onClick = {
+                        showMenu = false
+                        onNavigateToOrders()
+                    },
+                    leadingIcon = {
+                        Icon(Icons.Default.ReceiptLong, contentDescription = null, tint = PrimaryTeal)
+                    }
+                )
+                DropdownMenuItem(
                     text = { Text("حذف وتفريغ جميع المواد") },
                     onClick = {
                         showMenu = false
@@ -168,16 +174,6 @@ fun PharmaTopBar(
                     },
                     leadingIcon = {
                         Icon(Icons.Default.DeleteSweep, contentDescription = null, tint = MaterialTheme.colorScheme.error)
-                    }
-                )
-                DropdownMenuItem(
-                    text = { Text("بيانات وموقع الصيدلية") },
-                    onClick = {
-                        showMenu = false
-                        onNavigateTo(Screen.PharmacyProfile)
-                    },
-                    leadingIcon = {
-                        Icon(Icons.Default.LocalPharmacy, contentDescription = null)
                     }
                 )
             }

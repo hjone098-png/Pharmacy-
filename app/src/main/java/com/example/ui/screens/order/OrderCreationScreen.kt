@@ -542,16 +542,6 @@ fun OrderCreationScreen(
 
     // Dialog for selecting Drug Depot (تحديد المذخر: من أي مذخر؟)
     if (showDepotDialog) {
-        val popularDepots = listOf(
-            "مذخر سبأ",
-            "مذخر دجلة",
-            "مذخر بابل",
-            "مذخر النور",
-            "مذخر السلام",
-            "مذخر الفارابي",
-            "مذخر الرشيد",
-            "مذخر الأمل"
-        )
         var depotInput by remember { mutableStateOf(selectedDepotName) }
 
         AlertDialog(
@@ -574,8 +564,8 @@ fun OrderCreationScreen(
             text = {
                 Column(modifier = Modifier.fillMaxWidth()) {
                     Text(
-                        text = "حدد اسم المذخر الموجهة إليه الطلبية لكتابته في نهاية نموذج الطلبية (${bannerDisplay} ... (اسم المذخر)):",
-                        style = MaterialTheme.typography.bodySmall,
+                        text = "اكتب اسم المذخر الموجهة إليه الطلبية لكتابته في نهاية نموذج الطلبية (${bannerDisplay} ... (اسم المذخر)):",
+                        style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
 
@@ -585,7 +575,7 @@ fun OrderCreationScreen(
                         value = depotInput,
                         onValueChange = { depotInput = it },
                         label = { Text("اسم المذخر *") },
-                        placeholder = { Text("مثال: مذخر سبأ") },
+                        placeholder = { Text("اكتب اسم المذخر (مثال: مذخر سبأ)") },
                         leadingIcon = {
                             Icon(Icons.Default.Store, contentDescription = null, tint = PrimaryTeal)
                         },
@@ -595,38 +585,6 @@ fun OrderCreationScreen(
                             .fillMaxWidth()
                             .testTag("dialog_depot_name_input")
                     )
-
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    Text(
-                        text = "مذاخر شائعة وسريعة:",
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-
-                    Spacer(modifier = Modifier.height(6.dp))
-
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .horizontalScroll(rememberScrollState()),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        popularDepots.forEach { depot ->
-                            val isSelected = depotInput.trim() == depot
-                            FilterChip(
-                                selected = isSelected,
-                                onClick = { depotInput = depot },
-                                label = { Text(depot, fontSize = 11.sp) },
-                                colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = TealContainer,
-                                    selectedLabelColor = PrimaryTeal
-                                ),
-                                shape = RoundedCornerShape(10.dp)
-                            )
-                        }
-                    }
                 }
             },
             confirmButton = {
@@ -641,7 +599,7 @@ fun OrderCreationScreen(
                     shape = RoundedCornerShape(10.dp),
                     modifier = Modifier.testTag("dialog_confirm_depot_btn")
                 ) {
-                    Text("إصدار الطلبية بالنموذج ➔", fontWeight = FontWeight.Bold)
+                    Text("إصدار وحفظ الطلبية ➔", fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
