@@ -32,11 +32,11 @@ android {
       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
       // Do not remove or modify this signingConfig assignment. It is necessary for Android apps in
       // AI Studio.
-      
     }
     debug {
       // Do not remove or modify this signingConfig assignment. It is necessary for Android apps in
       // AI Studio.
+    }
   }
   compileOptions {
     sourceCompatibility = JavaVersion.VERSION_11
@@ -51,6 +51,7 @@ android {
     includeInApk = false
     includeInBundle = true
   }
+}
 
 // Configure the Secrets Gradle Plugin to use .env and .env.example files
 // to match the convention used in Web projects.
@@ -65,8 +66,8 @@ googleServices { missingGoogleServicesStrategy = MissingGoogleServicesStrategy.W
 // Some unused dependencies are commented out below instead of being removed.
 // This makes it easy to add them back in the future if needed.
 dependencies {
-  implementation(platform(libs.androidx.compose.bom)
-  implementation(platform(libs.firebase.bom)
+  implementation(platform(libs.androidx.compose.bom))
+  implementation(platform(libs.firebase.bom))
   // implementation(libs.accompanist.permissions)
   implementation(libs.androidx.activity.compose)
   // implementation(libs.androidx.camera.camera2)
@@ -124,3 +125,5 @@ dependencies {
   ksp(libs.androidx.room.compiler)
   ksp(libs.moshi.kotlin.codegen)
 }
+
+
