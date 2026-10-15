@@ -17,6 +17,10 @@ import com.example.data.repository.MedicationRepository
 import com.example.data.repository.OrderRepository
 import com.example.data.repository.PharmacyRepository
 import com.example.ui.navigation.Screen
+import com.example.ui.util.formatIraqiDinar
+import com.example.ui.util.formatOrderSlip
+import com.example.ui.util.formatPrice
+import com.example.ui.util.toArabicDigits
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -126,15 +130,22 @@ class PharmaOrderViewModel(application: Application) : AndroidViewModel(applicat
     private val _cartItems = MutableStateFlow<Map<Long, OrderItem>>(emptyMap())
     val cartItems: StateFlow<Map<Long, OrderItem>> = _cartItems.asStateFlow()
 
-    // Pharmacy Name for Current Order
+    // Pharmacy Name and Location for Current Order
     private val _currentOrderPharmacyName = MutableStateFlow("")
     val currentOrderPharmacyName: StateFlow<String> = _currentOrderPharmacyName.asStateFlow()
+
+    private val _currentOrderPharmacyLocation = MutableStateFlow("")
+    val currentOrderPharmacyLocation: StateFlow<String> = _currentOrderPharmacyLocation.asStateFlow()
+
+    // Drug Depot / Warehouse (المذخر الموجه إليه الطلب)
+    private val _orderDepotName = MutableStateFlow("مذخر سبأ")
+    val orderDepotName: StateFlow<String> = _orderDepotName.asStateFlow()
 
     // Order Meta State
     private val _orderUrgency = MutableStateFlow("عادي")
     val orderUrgency: StateFlow<String> = _orderUrgency.asStateFlow()
 
-    private val _orderSupplier = MutableStateFlow("")
+    private val _orderSupplier = MutableStateFlow("مذخر سبأ")
     val orderSupplier: StateFlow<String> = _orderSupplier.asStateFlow()
 
     private val _orderNotes = MutableStateFlow("")
@@ -153,16 +164,7 @@ class PharmaOrderViewModel(application: Application) : AndroidViewModel(applicat
         )
 
     init {
-        // Ensure initial profile or data if needed
-        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
-            try {
-                if (pharmacyRepository.getProfile() == null) {
-                    AppDatabase.seedInitialData(database)
-                }
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-        }
+        // App starts with a clean catalog for user-added medicines
     }
 
     // Navigation
@@ -269,7 +271,7 @@ class PharmaOrderViewModel(application: Application) : AndroidViewModel(applicat
     fun addMedication(medication: Medication) {
         viewModelScope.launch {
             medicationRepository.insert(medication)
-            Toast.makeText(getApplication(), "تمت إضافة الدواء بنجاح", Toast.LENGTH_SHORT).show()
+            Toast.makeText(getApplication(), "تمت إضافة المادة بنجاح", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -291,89 +293,64 @@ class PharmaOrderViewModel(application: Application) : AndroidViewModel(applicat
     fun deleteMedication(medication: Medication) {
         viewModelScope.launch {
             medicationRepository.delete(medication)
-            // also remove from cart if present
             removeItemFromCart(medication.id)
-            Toast.makeText(getApplication(), "تم حذف الدواء من المخزون", Toast.LENGTH_SHORT).show()
+            Toast.makeText(getApplication(), "تم حذف المادة بنجاح", Toast.LENGTH_SHORT).show()
         }
     }
 
-    fun resetInitialData() {
+    fun clearAllMedications() {
         viewModelScope.launch {
-            AppDatabase.seedInitialData(database)
-            Toast.makeText(getApplication(), "تمت استعادة الأدوية النموذجية", Toast.LENGTH_SHORT).show()
+            medicationRepository.clearAll()
+            clearCart()
+            Toast.makeText(getApplication(), "تم حذف جميع المواد وتفريغ القائمة بنجاح", Toast.LENGTH_SHORT).show()
         }
     }
 
     // Order Summary Generation
-    fun generateOrderSummary(): OrderEntity? {
+    fun generateOrderSummary(depotNameOverride: String? = null): OrderEntity? {
         val items = _cartItems.value.values.toList()
         if (items.isEmpty()) return null
 
         val profile = pharmacyProfile.value
         val pharmacyName = _currentOrderPharmacyName.value.ifBlank {
-            profile?.pharmacyName?.ifBlank { "صيدلية غير محددة" } ?: "صيدلية عامة"
+            profile?.pharmacyName?.ifBlank { "السنار" } ?: "السنار"
         }
+        val pharmacyLocation = _currentOrderPharmacyLocation.value.ifBlank {
+            profile?.neighborhood?.ifBlank { profile.city } ?: ""
+        }
+
+        val depotName = depotNameOverride?.ifBlank { null }
+            ?: _orderDepotName.value.ifBlank {
+                _orderSupplier.value.ifBlank { "مذخر سبأ" }
+            }
+
+        _orderDepotName.value = depotName
+        _orderSupplier.value = depotName
+
         val pharmacistName = profile?.pharmacistName?.ifBlank { "الصيدلي المسؤول" } ?: "الصيدلي المسؤول"
         val phone = profile?.phoneNumber.orEmpty()
         val address = buildString {
-            if (!profile?.city.isNullOrBlank()) append(profile?.city).append(" - ")
-            if (!profile?.neighborhood.isNullOrBlank()) append(profile?.neighborhood).append(" - ")
+            if (pharmacyLocation.isNotBlank()) append(pharmacyLocation).append(" - ")
+            if (!profile?.city.isNullOrBlank() && profile?.city != pharmacyLocation) append(profile?.city).append(" - ")
             if (!profile?.streetAddress.isNullOrBlank()) append(profile?.streetAddress)
-        }.ifBlank { "العنوان غير محدد" }
+        }.ifBlank { pharmacyLocation.ifBlank { "العنوان غير محدد" } }
         val locationUrl = profile?.locationCoordinatesOrUrl.orEmpty()
 
-        val dateStr = SimpleDateFormat("yyyy/MM/dd - hh:mm a", Locale("ar")).format(Date())
         val orderNum = "ORD-${System.currentTimeMillis().toString().takeLast(6)}"
-
         val totalUnits = items.sumOf { it.quantity }
         val totalPrice = items.sumOf { it.subtotal }
 
-        // Build itemized text for summary & copying
-        val itemsText = buildString {
-            items.forEachIndexed { index, item ->
-                append("${index + 1}. ${item.tradeName}")
-                if (item.dosageForm.isNotBlank()) append(" (${item.dosageForm})")
-                append(" - الكمية: ${item.quantity} ${item.packageUnit}")
-                if (item.unitPrice > 0) {
-                    append(" (سعر الوحدة: ${String.format(Locale.US, "%.2f", item.unitPrice)} ر.س)")
-                }
-                append("\n")
-            }
-        }
-
-        val formattedMessage = buildString {
-            append("🏥 *طلب أدوية جديد - $pharmacyName*\n")
-            append("🔖 *رقم الطلبية:* $orderNum\n")
-            append("📅 *التاريخ:* $dateStr\n")
-            append("━━━━━━━━━━━━━━━━━━━━\n")
-            append("📍 *بيانات الصيدلية والموقع:*\n")
-            append("• *الصيدلية:* $pharmacyName\n")
-            append("• *المسؤول:* $pharmacistName")
-            if (!profile?.licenseNumber.isNullOrBlank()) append(" (ترخيص: ${profile?.licenseNumber})")
-            append("\n")
-            if (phone.isNotBlank()) append("• *الهاتف / واتساب:* $phone\n")
-            append("• *العنوان:* $address\n")
-            if (locationUrl.isNotBlank()) append("• *الموقع الجغرافي:* $locationUrl\n")
-            append("━━━━━━━━━━━━━━━━━━━━\n")
-            append("📦 *قائمة المواد والكميات المطلوبة:*\n")
-            append(itemsText)
-            append("━━━━━━━━━━━━━━━━━━━━\n")
-            append("🔢 *إجمالي الأصناف:* ${items.size} أصناف ($totalUnits عبوة/وحدة)\n")
-            if (totalPrice > 0) {
-                append("💰 *إجمالي القيمة التقديرية:* ${String.format(Locale.US, "%.2f", totalPrice)} ر.س\n")
-            }
-            append("🚨 *درجة الأولوية:* ${_orderUrgency.value}\n")
-            if (_orderSupplier.value.isNotBlank()) {
-                append("🏢 *الموزع / المستودع الموجه له:* ${_orderSupplier.value}\n")
-            }
-            if (_orderNotes.value.isNotBlank()) {
-                append("📝 *ملاحظات التوريد:* ${_orderNotes.value}\n")
-            } else if (!profile?.defaultNotes.isNullOrBlank()) {
-                append("📝 *ملاحظات التوريد:* ${profile?.defaultNotes}\n")
-            }
-            append("━━━━━━━━━━━━━━━━━━━━\n")
-            append("✅ *تم التوليد عبر تطبيق إدارة طلبات الأدوية*")
-        }
+        // Generate the EXACT model slip requested by the user:
+        // ص. السنار / حي سومر 
+        // ـ جنى شراب (١٠)
+        // ...
+        // (مذخر سبأ)
+        val formattedModelText = formatOrderSlip(
+            pharmacyName = pharmacyName,
+            pharmacyLocation = pharmacyLocation,
+            items = items,
+            depotName = depotName
+        )
 
         val order = OrderEntity(
             orderNumber = orderNum,
@@ -383,14 +360,14 @@ class PharmaOrderViewModel(application: Application) : AndroidViewModel(applicat
             phoneNumber = phone,
             fullAddress = address,
             locationCoordinatesOrUrl = locationUrl,
-            itemsSummary = itemsText,
+            itemsSummary = formattedModelText,
             totalItemsCount = items.size,
             totalUnitsCount = totalUnits,
             totalEstimatedPrice = totalPrice,
             urgencyLevel = _orderUrgency.value,
-            supplierName = _orderSupplier.value.ifBlank { profile?.preferredSupplier.orEmpty() },
+            supplierName = depotName,
             notes = _orderNotes.value.ifBlank { profile?.defaultNotes.orEmpty() },
-            formattedCopyText = formattedMessage
+            formattedCopyText = formattedModelText
         )
 
         _lastGeneratedOrder.value = order
@@ -415,7 +392,7 @@ class PharmaOrderViewModel(application: Application) : AndroidViewModel(applicat
         val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
         val clip = ClipData.newPlainText("طلب أدوية", text)
         clipboard.setPrimaryClip(clip)
-        Toast.makeText(context, "تم نسخ تفاصيل الطلبية بالكامل إلى الحافظة!", Toast.LENGTH_LONG).show()
+        Toast.makeText(context, "تم نسخ النموذج بالكامل إلى الحافظة!", Toast.LENGTH_LONG).show()
     }
 
     fun shareOrderText(context: Context, text: String) {
@@ -429,14 +406,24 @@ class PharmaOrderViewModel(application: Application) : AndroidViewModel(applicat
         context.startActivity(shareIntent)
     }
 
-    fun startNewOrderForPharmacy(pharmacyName: String) {
+    fun startNewOrderForPharmacy(pharmacyName: String, pharmacyLocation: String = "") {
         _currentOrderPharmacyName.value = pharmacyName
+        _currentOrderPharmacyLocation.value = pharmacyLocation
         clearCart()
         navigateTo(Screen.OrderCreation)
     }
 
     fun setOrderPharmacyName(name: String) {
         _currentOrderPharmacyName.value = name
+    }
+
+    fun setOrderPharmacyLocation(location: String) {
+        _currentOrderPharmacyLocation.value = location
+    }
+
+    fun setOrderDepotName(depot: String) {
+        _orderDepotName.value = depot
+        _orderSupplier.value = depot
     }
 
     fun printOrder(context: Context, order: OrderEntity, items: List<OrderItem>) {
@@ -447,48 +434,106 @@ class PharmaOrderViewModel(application: Application) : AndroidViewModel(applicat
                 return
             }
 
+            val displayItems = if (items.isNotEmpty()) items else _cartItems.value.values.toList()
+            val cleanName = order.pharmacyName.trim().let { n ->
+                if (n.startsWith("ص.") || n.startsWith("ص /") || n.startsWith("صيدلية")) n else "ص. $n"
+            }
+            val location = _currentOrderPharmacyLocation.value.ifBlank { order.fullAddress }
+            val headerText = if (location.isNotBlank()) "$cleanName / $location" else cleanName
+            val depot = order.supplierName.ifBlank { _orderDepotName.value.ifBlank { "مذخر سبأ" } }
+            val cleanDepot = if (depot.startsWith("مذخر")) depot else "مذخر $depot"
+
             val htmlContent = buildString {
                 append("""
                     <!DOCTYPE html>
                     <html dir="rtl" lang="ar">
                     <head>
                         <meta charset="utf-8">
-                        <title>طلبية أدوية - ${order.pharmacyName}</title>
+                        <title>طلبية - $headerText</title>
                         <style>
-                            body { font-family: sans-serif; margin: 20px; direction: rtl; color: #1e293b; }
-                            .header { text-align: center; border-bottom: 2px solid #0f766e; padding-bottom: 12px; margin-bottom: 20px; }
-                            .header h1 { margin: 0; color: #0f766e; font-size: 24px; }
-                            .meta { display: flex; justify-content: space-between; margin-bottom: 15px; font-size: 13px; background: #f1f5f9; padding: 10px; border-radius: 8px; }
-                            table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 13px; }
-                            th, td { border: 1px solid #cbd5e1; padding: 8px 10px; text-align: right; }
-                            th { background-color: #0f766e; color: white; }
-                            tr:nth-child(even) { background-color: #f8fafc; }
-                            .total-row { font-weight: bold; background-color: #ccfbf1 !important; color: #0f766e; }
-                            .footer { margin-top: 30px; text-align: center; font-size: 12px; color: #64748b; border-top: 1px solid #e2e8f0; padding-top: 10px; }
+                            @page { margin: 12mm 15mm; size: auto; }
+                            body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 15px; direction: rtl; color: #1e293b; background: #fff; }
+                            .slip-box {
+                                border: 2.5px solid #0f766e;
+                                border-radius: 12px;
+                                padding: 22px 24px;
+                                margin-bottom: 20px;
+                                background-color: #ffffff;
+                            }
+                            .slip-header {
+                                font-size: 26px;
+                                font-weight: bold;
+                                color: #0f766e;
+                                border-bottom: 2px solid #0f766e;
+                                padding-bottom: 12px;
+                                margin-bottom: 18px;
+                            }
+                            .slip-item {
+                                font-size: 20px;
+                                font-weight: 600;
+                                line-height: 2.1;
+                                color: #0f172a;
+                            }
+                            .slip-footer {
+                                margin-top: 24px;
+                                padding-top: 12px;
+                                font-size: 22px;
+                                font-weight: bold;
+                                color: #0d9488;
+                                text-align: right;
+                            }
+                            .details-table {
+                                width: 100%;
+                                border-collapse: collapse;
+                                margin-top: 20px;
+                                font-size: 13px;
+                            }
+                            .details-table th, .details-table td {
+                                border: 1px solid #cbd5e1;
+                                padding: 7px 10px;
+                                text-align: right;
+                            }
+                            .details-table th {
+                                background-color: #0f766e;
+                                color: #ffffff;
+                            }
+                            .total-row {
+                                font-weight: bold;
+                                background-color: #ccfbf1 !important;
+                                color: #0f766e;
+                            }
+                            .print-footer {
+                                margin-top: 25px;
+                                text-align: center;
+                                font-size: 11px;
+                                color: #94a3b8;
+                                border-top: 1px solid #e2e8f0;
+                                padding-top: 8px;
+                            }
                         </style>
                     </head>
                     <body>
-                        <div class="header">
-                            <h1>🏥 طلبية أدوية كاملة</h1>
-                            <h3>${order.pharmacyName}</h3>
+                        <div class="slip-box">
+                            <div class="slip-header">$headerText</div>
+                """.trimIndent())
+
+                displayItems.forEach { itm ->
+                    val arabicQty = toArabicDigits(itm.quantity)
+                    append("""
+                        <div class="slip-item">ـ ${itm.tradeName} ($arabicQty)</div>
+                    """.trimIndent())
+                }
+
+                append("""
+                            <div class="slip-footer">($cleanDepot)</div>
                         </div>
-                        <div class="meta">
-                            <div><strong>رقم الطلبية:</strong> ${order.orderNumber}</div>
-                            <div><strong>التاريخ:</strong> ${SimpleDateFormat("yyyy/MM/dd hh:mm a", Locale("ar")).format(Date(order.createdAt))}</div>
-                            <div><strong>الأولوية:</strong> ${order.urgencyLevel}</div>
-                        </div>
-                        <div style="margin-bottom: 15px; font-size: 13px;">
-                            ${if (order.phoneNumber.isNotBlank()) "<div><strong>الهاتف:</strong> ${order.phoneNumber}</div>" else ""}
-                            ${if (order.fullAddress.isNotBlank()) "<div><strong>العنوان:</strong> ${order.fullAddress}</div>" else ""}
-                            ${if (order.notes.isNotBlank()) "<div><strong>ملاحظات:</strong> ${order.notes}</div>" else ""}
-                        </div>
-                        <table>
+
+                        <table class="details-table">
                             <thead>
                                 <tr>
                                     <th>#</th>
-                                    <th>اسم المادة الدوائية</th>
-                                    <th>الشكل / الوحدة</th>
-                                    <th>الكمية المطلوبة</th>
+                                    <th>المادة بالصورة</th>
+                                    <th>الكمية</th>
                                     <th>سعر الوحدة</th>
                                     <th>المجموع</th>
                                 </tr>
@@ -496,31 +541,30 @@ class PharmaOrderViewModel(application: Application) : AndroidViewModel(applicat
                             <tbody>
                 """.trimIndent())
 
-                val displayItems = if (items.isNotEmpty()) items else _cartItems.value.values.toList()
                 displayItems.forEachIndexed { idx, itm ->
                     append("""
                         <tr>
                             <td>${idx + 1}</td>
-                            <td><strong>${itm.tradeName}</strong>${if (itm.scientificName.isNotBlank()) "<br><small style='color:#64748b;'>${itm.scientificName}</small>" else ""}</td>
-                            <td>${itm.dosageForm} (${itm.packageUnit})</td>
-                            <td><strong>${itm.quantity}</strong></td>
-                            <td>${if (itm.unitPrice > 0) String.format(Locale.US, "%.2f ر.س", itm.unitPrice) else "-"}</td>
-                            <td>${if (itm.subtotal > 0) String.format(Locale.US, "%.2f ر.س", itm.subtotal) else "-"}</td>
+                            <td><strong>${itm.tradeName}</strong></td>
+                            <td><strong>${toArabicDigits(itm.quantity)} (${itm.quantity})</strong></td>
+                            <td>${if (itm.unitPrice > 0) formatIraqiDinar(itm.unitPrice) else "-"}</td>
+                            <td>${if (itm.subtotal > 0) formatIraqiDinar(itm.subtotal) else "-"}</td>
                         </tr>
                     """.trimIndent())
                 }
 
                 append("""
                                 <tr class="total-row">
-                                    <td colspan="3"><strong>الإجمالي الكلي: (${order.totalItemsCount} أصناف)</strong></td>
+                                    <td colspan="2"><strong>الإجمالي الكلي: (${order.totalItemsCount} أصناف)</strong></td>
                                     <td><strong>${order.totalUnitsCount} عبوة</strong></td>
                                     <td>-</td>
-                                    <td><strong>${String.format(Locale.US, "%.2f ر.س", order.totalEstimatedPrice)}</strong></td>
+                                    <td><strong>${formatIraqiDinar(order.totalEstimatedPrice)}</strong></td>
                                 </tr>
                             </tbody>
                         </table>
-                        <div class="footer">
-                            تمت طباعة الطلبية عبر تطبيق طلبيات الأدوية
+
+                        <div class="print-footer">
+                            رقم الطلبية: ${order.orderNumber} | التاريخ: ${SimpleDateFormat("yyyy/MM/dd hh:mm a", Locale("ar")).format(Date(order.createdAt))}
                         </div>
                     </body>
                     </html>

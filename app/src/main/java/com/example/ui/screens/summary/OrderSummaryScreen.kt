@@ -3,6 +3,7 @@ package com.example.ui.screens.summary
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,11 +15,13 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Assignment
 import androidx.compose.material.icons.filled.BookmarkBorder
 import androidx.compose.material.icons.filled.Check
@@ -28,9 +31,11 @@ import androidx.compose.material.icons.filled.LocalPharmacy
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Phone
+import androidx.compose.material.icons.filled.Print
 import androidx.compose.material.icons.filled.ReceiptLong
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.ShoppingCart
+import androidx.compose.material.icons.filled.Store
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -68,11 +73,10 @@ import com.example.ui.theme.SecondaryCyan
 import com.example.ui.theme.TealContainer
 import java.util.Locale
 
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Print
 import androidx.compose.ui.layout.ContentScale
 import coil.compose.AsyncImage
 import com.example.ui.components.DosageFormIcon
+import com.example.ui.util.formatIraqiDinar
 
 @Composable
 fun OrderSummaryScreen(
@@ -345,6 +349,87 @@ fun OrderSummaryScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
+        // Official Order Slip Model Card (نموذج الطلبية المطلوب والمطبوع)
+        Card(
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.ReceiptLong,
+                            contentDescription = null,
+                            tint = PrimaryTeal,
+                            modifier = Modifier.size(22.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "نموذج الطلبية (كما طلبت):",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = PrimaryTeal
+                        )
+                    }
+
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = TealContainer,
+                        modifier = Modifier.clickable {
+                            val current = onGenerateOrder() ?: activeOrder
+                            onCopyToClipboard(current.formattedCopyText)
+                        }
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.ContentCopy,
+                                contentDescription = null,
+                                tint = PrimaryTeal,
+                                modifier = Modifier.size(14.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "نسخ النموذج 📋",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = PrimaryTeal
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // High-contrast clean model slip box
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .border(1.5.dp, PrimaryTeal.copy(alpha = 0.4f), RoundedCornerShape(12.dp))
+                        .background(Color(0xFFF8FAFC), RoundedCornerShape(12.dp))
+                        .padding(16.dp)
+                ) {
+                    Text(
+                        text = activeOrder.formattedCopyText,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        lineHeight = 26.sp,
+                        color = Color(0xFF0F172A)
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
         // Pharmacy Header & Location Box
         Card(
             shape = RoundedCornerShape(16.dp),
@@ -465,12 +550,65 @@ fun OrderSummaryScreen(
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text(
-                    text = "درجة الأولوية وملاحظات الموزع",
+                    text = "تحديد المذخر الموجهة له الطلبية (المذخر):",
                     style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = PrimaryTeal
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    listOf("مذخر سبأ", "مذخر دجلة", "مذخر بابل", "مذخر النور", "مذخر السلام", "مذخر الفارابي", "مذخر الرشيد", "مذخر الأمل").forEach { depot ->
+                        val isSelected = orderSupplier.trim() == depot
+                        FilterChip(
+                            selected = isSelected,
+                            onClick = {
+                                onSupplierChange(depot)
+                                onGenerateOrder()
+                            },
+                            label = { Text(depot, fontSize = 11.sp) },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = TealContainer,
+                                selectedLabelColor = PrimaryTeal
+                            ),
+                            shape = RoundedCornerShape(10.dp)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                OutlinedTextField(
+                    value = orderSupplier,
+                    onValueChange = {
+                        onSupplierChange(it)
+                        onGenerateOrder()
+                    },
+                    label = { Text("اسم المذخر *") },
+                    placeholder = { Text("مثال: مذخر سبأ") },
+                    leadingIcon = {
+                        Icon(Icons.Default.Store, contentDescription = null, tint = PrimaryTeal)
+                    },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp)
+                )
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                Text(
+                    text = "درجة الأولوية:",
+                    style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.Bold
                 )
 
-                Spacer(modifier = Modifier.height(10.dp))
+                Spacer(modifier = Modifier.height(6.dp))
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -493,21 +631,6 @@ fun OrderSummaryScreen(
                         )
                     }
                 }
-
-                Spacer(modifier = Modifier.height(10.dp))
-
-                OutlinedTextField(
-                    value = orderSupplier,
-                    onValueChange = {
-                        onSupplierChange(it)
-                        onGenerateOrder()
-                    },
-                    label = { Text("المستودع / الموزع الموجه له الطلب") },
-                    placeholder = { Text("مثال: شركة سقالة، المتحدة") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp)
-                )
 
                 Spacer(modifier = Modifier.height(8.dp))
 
@@ -623,7 +746,7 @@ fun OrderSummaryScreen(
                                 }
                                 if (item.subtotal > 0) {
                                     Text(
-                                        text = "${String.format(Locale.US, "%.2f", item.subtotal)} ر.س",
+                                        text = formatIraqiDinar(item.subtotal),
                                         fontSize = 11.sp,
                                         color = SecondaryCyan,
                                         fontWeight = FontWeight.SemiBold
@@ -666,7 +789,7 @@ fun OrderSummaryScreen(
                         )
                         if (activeOrder.totalEstimatedPrice > 0) {
                             Text(
-                                text = "القيمة التقديرية: ${String.format(Locale.US, "%.2f", activeOrder.totalEstimatedPrice)} ر.س",
+                                text = "القيمة التقديرية: ${formatIraqiDinar(activeOrder.totalEstimatedPrice)}",
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 13.sp,
                                 color = SecondaryCyan

@@ -30,6 +30,7 @@ import com.example.data.local.Medication
 import com.example.ui.theme.PrimaryTeal
 import com.example.ui.theme.SecondaryCyan
 import com.example.ui.theme.TealContainer
+import com.example.ui.util.formatIraqiDinar
 import java.util.Locale
 
 @Composable
@@ -150,7 +151,7 @@ fun MedicineCard(
 
                     if (medication.unitPrice > 0) {
                         Text(
-                            text = "${String.format(Locale.US, "%.2f", medication.unitPrice)} ر.س / ${medication.packageUnit}",
+                            text = "${formatIraqiDinar(medication.unitPrice)} / ${medication.packageUnit}",
                             style = MaterialTheme.typography.labelMedium,
                             fontWeight = FontWeight.SemiBold,
                             color = PrimaryTeal
@@ -160,7 +161,7 @@ fun MedicineCard(
                     if (isSelected && medication.unitPrice > 0) {
                         val subtotal = selectedQuantity * medication.unitPrice
                         Text(
-                            text = "المجموع: ${String.format(Locale.US, "%.2f", subtotal)} ر.س",
+                            text = "المجموع: ${formatIraqiDinar(subtotal)}",
                             style = MaterialTheme.typography.labelSmall,
                             fontWeight = FontWeight.Bold,
                             color = SecondaryCyan

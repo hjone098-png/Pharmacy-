@@ -12,6 +12,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.LocalPharmacy
 import androidx.compose.material.icons.filled.LocationOn
@@ -53,7 +54,7 @@ fun PharmaTopBar(
     pharmacyProfile: PharmacyProfile?,
     onNavigateTo: (Screen) -> Unit,
     onStartNewOrderClick: () -> Unit,
-    onResetData: () -> Unit
+    onClearAllMedications: () -> Unit
 ) {
     var showMenu by remember { mutableStateOf(false) }
 
@@ -160,13 +161,13 @@ fun PharmaTopBar(
                 onDismissRequest = { showMenu = false }
             ) {
                 DropdownMenuItem(
-                    text = { Text("استعادة الأدوية الافتراضية") },
+                    text = { Text("حذف وتفريغ جميع المواد") },
                     onClick = {
                         showMenu = false
-                        onResetData()
+                        onClearAllMedications()
                     },
                     leadingIcon = {
-                        Icon(Icons.Default.Refresh, contentDescription = null)
+                        Icon(Icons.Default.DeleteSweep, contentDescription = null, tint = MaterialTheme.colorScheme.error)
                     }
                 )
                 DropdownMenuItem(

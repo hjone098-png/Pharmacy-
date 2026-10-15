@@ -53,6 +53,7 @@ import com.example.data.local.OrderEntity
 import com.example.ui.theme.PrimaryTeal
 import com.example.ui.theme.SecondaryCyan
 import com.example.ui.theme.TealContainer
+import com.example.ui.util.formatIraqiDinar
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -214,6 +215,29 @@ fun OrderHistoryCard(
 
             Spacer(modifier = Modifier.height(4.dp))
 
+            val cleanPharm = if (order.pharmacyName.startsWith("ص.") || order.pharmacyName.startsWith("ص /") || order.pharmacyName.startsWith("صيدلية")) {
+                order.pharmacyName
+            } else {
+                "ص. ${order.pharmacyName}"
+            }
+            val locationPart = if (order.fullAddress.isNotBlank()) " / ${order.fullAddress}" else ""
+            Text(
+                text = "$cleanPharm$locationPart",
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Bold,
+                color = PrimaryTeal
+            )
+
+            if (order.supplierName.isNotBlank()) {
+                val cleanDepot = if (order.supplierName.startsWith("مذخر")) order.supplierName else "مذخر ${order.supplierName}"
+                Text(
+                    text = "($cleanDepot)",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = SecondaryCyan
+                )
+            }
+
             Text(
                 text = dateStr,
                 fontSize = 11.sp,
@@ -235,7 +259,7 @@ fun OrderHistoryCard(
 
                 if (order.totalEstimatedPrice > 0) {
                     Text(
-                        text = "${String.format(Locale.US, "%.2f", order.totalEstimatedPrice)} ر.س",
+                        text = formatIraqiDinar(order.totalEstimatedPrice),
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Bold,
                         color = PrimaryTeal

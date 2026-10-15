@@ -8,7 +8,6 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -28,6 +27,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Medication
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.Button
@@ -59,16 +59,16 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.example.data.local.Medication
 import com.example.ui.theme.PrimaryTeal
-import com.example.ui.theme.StockOkContainer
 import com.example.ui.theme.StockOkGreen
 import com.example.ui.theme.TealContainer
-import java.util.Locale
+import com.example.ui.util.formatIraqiDinar
 
 @Composable
 fun MedicineGridCard(
     medication: Medication,
     selectedQuantity: Int,
     onQuantityConfirmed: (Int) -> Unit,
+    onDeleteMedication: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     var isExpandedForQuantity by remember { mutableStateOf(false) }
@@ -92,7 +92,7 @@ fun MedicineGridCard(
         modifier = modifier
             .fillMaxWidth()
             .clickable {
-                // Tapping image opens the compact inline quantity selector right inside the card!
+                // Tapping opens the inline compact quantity box
                 if (!isExpandedForQuantity) {
                     tempQuantity = if (selectedQuantity > 0) selectedQuantity else 1
                     isExpandedForQuantity = true
@@ -128,16 +128,16 @@ fun MedicineGridCard(
                     }
                 }
 
-                // Price Badge (Pill in bottom-end of photo)
+                // Price Badge in Iraqi Dinar (د.ع)
                 Surface(
                     shape = RoundedCornerShape(topStart = 12.dp),
                     color = PrimaryTeal,
                     modifier = Modifier.align(Alignment.BottomEnd)
                 ) {
                     Text(
-                        text = "${String.format(Locale.US, "%.2f", medication.unitPrice)} ر.س",
+                        text = formatIraqiDinar(medication.unitPrice),
                         color = Color.White,
-                        fontSize = 12.sp,
+                        fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                     )
@@ -168,6 +168,25 @@ fun MedicineGridCard(
                                 fontWeight = FontWeight.Bold
                             )
                         }
+                    }
+                }
+
+                // Delete button (Top-End) if enabled
+                if (onDeleteMedication != null) {
+                    Surface(
+                        shape = CircleShape,
+                        color = Color.Black.copy(alpha = 0.5f),
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(6.dp)
+                            .clickable { onDeleteMedication() }
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.DeleteOutline,
+                            contentDescription = "حذف الدواء",
+                            tint = Color.White,
+                            modifier = Modifier.padding(4.dp).size(16.dp)
+                        )
                     }
                 }
             }

@@ -84,6 +84,7 @@ import com.example.ui.theme.StockOkGreen
 import com.example.ui.theme.StockWarningAmber
 import com.example.ui.theme.StockWarningContainer
 import com.example.ui.theme.TealContainer
+import com.example.ui.util.formatIraqiDinar
 import com.example.ui.viewmodel.InventoryFilter
 import java.util.Locale
 
@@ -477,7 +478,7 @@ fun InventoryMedicineCard(
                     if (medication.unitPrice > 0) {
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
-                            text = "السعر: ${String.format(Locale.US, "%.2f", medication.unitPrice)} ر.س",
+                            text = "السعر: ${formatIraqiDinar(medication.unitPrice)}",
                             fontSize = 11.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -718,7 +719,7 @@ fun MedicationFormDialog(
                     OutlinedTextField(
                         value = priceStr,
                         onValueChange = { priceStr = it },
-                        label = { Text("السعر التقديري (ر.س)") },
+                        label = { Text("السعر بالدينار العراقي (د.ع)") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                         singleLine = true,
                         modifier = Modifier.weight(1f),

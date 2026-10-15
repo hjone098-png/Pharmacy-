@@ -27,5 +27,6 @@ class MedicationRepository(private val medicationDao: MedicationDao) {
 
     suspend fun deleteById(id: Long) = medicationDao.deleteMedicationById(id)
 
+    suspend fun clearAll() = medicationDao.clearAll()
     suspend fun getCount(): Int = medicationDao.getCount()
 }
