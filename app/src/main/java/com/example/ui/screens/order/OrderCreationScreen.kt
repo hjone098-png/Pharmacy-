@@ -43,6 +43,10 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material.icons.filled.Store
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.material.icons.filled.DeleteOutline
+import androidx.compose.material.icons.filled.ReceiptLong
+import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -52,6 +56,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -59,6 +64,10 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import com.example.ui.components.DosageFormIcon
+import com.example.ui.components.OrderPreSubmissionSummaryDialog
+import com.example.ui.util.formatOrderSlip
+import com.example.ui.util.toArabicDigits
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -104,9 +113,11 @@ fun OrderCreationScreen(
     onAddNewMedicationWithImage: (Medication) -> Unit,
     onDeleteMedication: (Medication) -> Unit,
     onChangePharmacyName: () -> Unit,
+    onUpdateCartItemQuantity: ((Long, Int) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     var showAddMedicineDialog by remember { mutableStateOf(false) }
+    var showOrderSummaryPreview by remember { mutableStateOf(false) }
     var showDepotDialog by remember { mutableStateOf(false) }
     var selectedDepotName by remember(currentOrderDepot) {
         mutableStateOf(currentOrderDepot.ifBlank { "مذخر سبأ" })
@@ -173,22 +184,19 @@ fun OrderCreationScreen(
                         modifier = Modifier.weight(1f),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // Prominent + icon next to pharmacy
                         Surface(
                             shape = CircleShape,
-                            color = PrimaryTeal,
-                            modifier = Modifier
-                                .size(34.dp)
-                                .clickable { onChangePharmacyName() }
+                            color = TealContainer,
+                            modifier = Modifier.size(36.dp)
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.Add,
-                                contentDescription = "بدء طلبية باسم الصيدلية والموقع",
-                                tint = Color.White,
-                                modifier = Modifier
-                                    .padding(7.dp)
-                                    .size(20.dp)
-                            )
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = Icons.Default.LocalPharmacy,
+                                    contentDescription = null,
+                                    tint = PrimaryTeal,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
                         }
 
                         Spacer(modifier = Modifier.width(10.dp))
@@ -209,28 +217,25 @@ fun OrderCreationScreen(
                         }
                     }
 
-                    // Button to change or enter pharmacy name and location
+                    // Button for adding/changing pharmacy and location: ONLY '+' symbol without any words
                     Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = Color.White.copy(alpha = 0.9f),
-                        modifier = Modifier.clickable { onChangePharmacyName() }
+                        shape = CircleShape,
+                        color = PrimaryTeal,
+                        shadowElevation = 3.dp,
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clickable { onChangePharmacyName() }
+                            .testTag("add_pharmacy_plus_btn")
                     ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier.fillMaxSize()
                         ) {
                             Icon(
-                                imageVector = Icons.Default.Edit,
-                                contentDescription = "تعديل الصيدلية والموقع",
-                                tint = PrimaryTeal,
-                                modifier = Modifier.size(14.dp)
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = "الصيدلية والموقع (+)",
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = PrimaryTeal
+                                imageVector = Icons.Default.Add,
+                                contentDescription = "إضافة وتعديل الصيدلية والموقع",
+                                tint = Color.White,
+                                modifier = Modifier.size(24.dp)
                             )
                         }
                     }
@@ -403,23 +408,49 @@ fun OrderCreationScreen(
 
                             Spacer(modifier = Modifier.height(10.dp))
 
-                            OutlinedTextField(
-                                value = "",
-                                onValueChange = {},
-                                enabled = false,
-                                readOnly = true,
+                            Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .clickable { onChangePharmacyName() },
-                                placeholder = {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Icon(Icons.Default.Add, contentDescription = null, tint = PrimaryTeal)
-                                        Spacer(modifier = Modifier.width(6.dp))
-                                        Text("اضغط هنا لكتابة اسم الصيدلية (+)", color = PrimaryTeal, fontWeight = FontWeight.Bold)
+                                    .clickable { onChangePharmacyName() }
+                                    .background(TealContainer.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
+                                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.LocalPharmacy,
+                                        contentDescription = null,
+                                        tint = PrimaryTeal,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = bannerDisplay,
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = PrimaryTeal
+                                    )
+                                }
+
+                                Surface(
+                                    shape = CircleShape,
+                                    color = PrimaryTeal,
+                                    modifier = Modifier.size(36.dp)
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Icon(
+                                            imageVector = Icons.Default.Add,
+                                            contentDescription = "إضافة الصيدلية والموقع",
+                                            tint = Color.White,
+                                            modifier = Modifier.size(22.dp)
+                                        )
                                     }
-                                },
-                                shape = RoundedCornerShape(12.dp)
-                            )
+                                }
+                            }
                         }
                     }
                 }
@@ -480,7 +511,13 @@ fun OrderCreationScreen(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Column(modifier = Modifier.weight(1f)) {
+                    // Clickable column with item counts and total price to open preview
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clickable { showOrderSummaryPreview = true }
+                            .padding(vertical = 2.dp)
+                    ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(
                                 imageVector = Icons.Default.ShoppingCart,
@@ -498,7 +535,7 @@ fun OrderCreationScreen(
 
                         if (totalEstimatedPrice > 0) {
                             Text(
-                                text = "المجموع: ${formatIraqiDinar(totalEstimatedPrice)}",
+                                text = "المجموع: ${formatIraqiDinar(totalEstimatedPrice)} • اضغط للمعاينة",
                                 style = MaterialTheme.typography.bodySmall,
                                 fontWeight = FontWeight.Bold,
                                 color = PrimaryTeal
@@ -521,16 +558,17 @@ fun OrderCreationScreen(
                             )
                         }
 
+                        // Preview & Submit Button
                         Button(
-                            onClick = { showDepotDialog = true },
+                            onClick = { showOrderSummaryPreview = true },
                             colors = ButtonDefaults.buttonColors(containerColor = PrimaryTeal),
                             shape = RoundedCornerShape(12.dp),
                             modifier = Modifier.testTag("send_and_print_order_btn")
                         ) {
-                            Icon(Icons.Default.Send, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Icon(Icons.Default.ReceiptLong, contentDescription = null, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
-                                text = "تم انتهاء الطلبية (تحديد المذخر) ➔",
+                                text = "معاينة الطلبية ($totalSelectedItems) ➔",
                                 fontWeight = FontWeight.Bold
                             )
                         }
@@ -538,6 +576,32 @@ fun OrderCreationScreen(
                 }
             }
         }
+    }
+
+    // Comprehensive Pre-Submission Summary View Dialog
+    if (showOrderSummaryPreview) {
+        OrderPreSubmissionSummaryDialog(
+            cartItems = cartItems,
+            pharmacyName = rawPharmacyName,
+            pharmacyLocation = rawLocation,
+            initialDepotName = selectedDepotName,
+            onQuantityChange = { medicationId, newQty ->
+                if (onUpdateCartItemQuantity != null) {
+                    onUpdateCartItemQuantity(medicationId, newQty)
+                } else {
+                    val med = medications.find { it.id == medicationId }
+                    if (med != null) {
+                        onQuantityChange(med, newQty)
+                    }
+                }
+            },
+            onDismiss = { showOrderSummaryPreview = false },
+            onSubmitOrder = { finalDepot ->
+                selectedDepotName = finalDepot
+                showOrderSummaryPreview = false
+                onProceedToSummary(finalDepot)
+            }
+        )
     }
 
     // Dialog for selecting Drug Depot (تحديد المذخر: من أي مذخر؟)

@@ -42,14 +42,15 @@ fun formatOrderSlip(
         trimmedName.startsWith("ص /") -> trimmedName.replaceFirst("ص /", "ص.")
         trimmedName.startsWith("صيدلية") -> trimmedName.replaceFirst(Regex("^صيدلية\\s*"), "ص. ")
         trimmedName.isNotBlank() -> "ص. $trimmedName"
-        else -> "ص. صيدلية غير محددة"
+        else -> ""
     }
 
     val trimmedLocation = pharmacyLocation.trim()
-    val header = if (trimmedLocation.isNotBlank()) {
-        "$cleanPharmacy / $trimmedLocation"
-    } else {
-        cleanPharmacy
+    val header = when {
+        cleanPharmacy.isNotBlank() && trimmedLocation.isNotBlank() -> "$cleanPharmacy / $trimmedLocation"
+        cleanPharmacy.isNotBlank() -> cleanPharmacy
+        trimmedLocation.isNotBlank() -> trimmedLocation
+        else -> ""
     }
 
     val itemsBlock = if (items.isNotEmpty()) {
@@ -65,11 +66,13 @@ fun formatOrderSlip(
     val cleanDepot = when {
         trimmedDepot.startsWith("مذخر") -> trimmedDepot
         trimmedDepot.isNotBlank() -> "مذخر $trimmedDepot"
-        else -> "مذخر غير محدد"
+        else -> "مذخر سبأ"
     }
 
     return buildString {
-        appendLine(header)
+        if (header.isNotBlank()) {
+            appendLine(header)
+        }
         appendLine(itemsBlock)
         appendLine()
         append("($cleanDepot)")

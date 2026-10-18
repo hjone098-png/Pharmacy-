@@ -1,5 +1,8 @@
 package com.example.data.local
 
+import androidx.compose.runtime.Immutable
+
+@Immutable
 data class OrderItem(
     val medicationId: Long,
     val tradeName: String,

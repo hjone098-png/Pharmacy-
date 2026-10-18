@@ -684,6 +684,52 @@ fun OrderSummaryScreen(
 
                 HorizontalDivider(modifier = Modifier.padding(vertical = 10.dp))
 
+                // Quick Summary Metric Chips (Calculated Totals)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 10.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = TealContainer.copy(alpha = 0.5f),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Column(modifier = Modifier.padding(6.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("الأصناف", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("${activeOrder.totalItemsCount}", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = PrimaryTeal)
+                        }
+                    }
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = Color(0xFFE0F2FE),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Column(modifier = Modifier.padding(6.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("إجمالي العبوات", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("${activeOrder.totalUnitsCount}", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = SecondaryCyan)
+                        }
+                    }
+                    val cartons = activeOrder.totalUnitsCount / 24
+                    val remainingUnits = activeOrder.totalUnitsCount % 24
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = Color(0xFFFEF3C7),
+                        modifier = Modifier.weight(1.2f)
+                    ) {
+                        Column(modifier = Modifier.padding(6.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("الكراتين (24=1)", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(
+                                if (cartons > 0) "$cartons كارتون" + if (remainingUnits > 0) " + $remainingUnits" else "" else "$remainingUnits عبوة",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.sp,
+                                color = Color(0xFFB45309)
+                            )
+                        }
+                    }
+                }
+
                 val items = cartItems.values.toList()
                 if (items.isNotEmpty()) {
                     items.forEachIndexed { index, item ->
@@ -737,7 +783,7 @@ fun OrderSummaryScreen(
                                     color = TealContainer
                                 ) {
                                     Text(
-                                        text = "${item.quantity} ${item.packageUnit}",
+                                        text = if (item.quantity == 24) "كارتون واحد (24 ${item.packageUnit})" else "${item.quantity} ${item.packageUnit}",
                                         fontWeight = FontWeight.Bold,
                                         fontSize = 12.sp,
                                         color = PrimaryTeal,

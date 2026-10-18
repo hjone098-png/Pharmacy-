@@ -9,7 +9,10 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.rememberScrollState
+import com.example.ui.theme.SecondaryCyan
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -30,6 +33,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Medication
 import androidx.compose.material.icons.filled.Remove
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -39,6 +43,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import com.example.ui.util.toArabicDigits
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -59,6 +65,7 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.example.data.local.Medication
 import com.example.ui.theme.PrimaryTeal
+import com.example.ui.theme.SecondaryCyan
 import com.example.ui.theme.StockOkGreen
 import com.example.ui.theme.TealContainer
 import com.example.ui.util.formatIraqiDinar
@@ -71,10 +78,7 @@ fun MedicineGridCard(
     onDeleteMedication: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
-    var isExpandedForQuantity by remember { mutableStateOf(false) }
-    var tempQuantity by remember(selectedQuantity) {
-        mutableIntStateOf(if (selectedQuantity > 0) selectedQuantity else 1)
-    }
+    var showNumberPickerDialog by remember { mutableStateOf(false) }
 
     val isSelected = selectedQuantity > 0
     val borderColor by animateColorAsState(
@@ -91,22 +95,18 @@ fun MedicineGridCard(
         elevation = CardDefaults.cardElevation(defaultElevation = if (isSelected) 4.dp else 1.dp),
         modifier = modifier
             .fillMaxWidth()
-            .clickable {
-                // Tapping opens the inline compact quantity box
-                if (!isExpandedForQuantity) {
-                    tempQuantity = if (selectedQuantity > 0) selectedQuantity else 1
-                    isExpandedForQuantity = true
-                }
-            }
             .testTag("med_grid_card_${medication.id}")
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
-            // Medicine Image Container
+            // Medicine Image Container - Click to adjust quantity (+10 continuous or 1 carton)
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .aspectRatio(1.25f)
                     .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
+                    .clickable {
+                        showNumberPickerDialog = true
+                    }
             ) {
                 if (medication.imageUrl.isNotBlank()) {
                     AsyncImage(
@@ -162,7 +162,7 @@ fun MedicineGridCard(
                             )
                             Spacer(modifier = Modifier.width(3.dp))
                             Text(
-                                text = "$selectedQuantity ${medication.packageUnit}",
+                                text = if (selectedQuantity == 24) "كارتون واحد (٢٤)" else "$selectedQuantity ${medication.packageUnit}",
                                 color = Color.White,
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold
@@ -228,175 +228,462 @@ fun MedicineGridCard(
                         fontSize = 10.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-
-                    if (!isExpandedForQuantity && !isSelected) {
-                        Text(
-                            text = "المس لتحديد العدد",
-                            fontSize = 10.sp,
-                            color = PrimaryTeal,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    }
                 }
 
-                // Compact Inline Quantity Box (مربع صغير يطلع جوه لتحديد العدد والضغط على أوكي)
-                AnimatedVisibility(
-                    visible = isExpandedForQuantity,
-                    enter = expandVertically() + fadeIn(),
-                    exit = shrinkVertically() + fadeOut()
+                // 1) Direct Unit Selection Options: قطعة واحدة، عشر قطع، 24 (كارتون واحد)، 50، 100
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp)
                 ) {
-                    Column(
+                    // Row 1: قطعة واحدة (1), عشر قطع (10), 24 (كارتون)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        val row1Units = listOf(
+                            1 to "١ قطعة",
+                            10 to "١٠ قطع",
+                            24 to "٢٤ كارتون"
+                        )
+                        row1Units.forEach { (qty, label) ->
+                            val isChosen = selectedQuantity == qty
+                            Surface(
+                                onClick = { onQuantityConfirmed(qty) },
+                                shape = RoundedCornerShape(8.dp),
+                                color = if (isChosen) PrimaryTeal else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
+                                border = BorderStroke(
+                                    1.dp,
+                                    if (isChosen) PrimaryTeal else MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)
+                                ),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(28.dp)
+                                    .testTag("card_unit_${medication.id}_$qty")
+                            ) {
+                                Box(
+                                    contentAlignment = Alignment.Center,
+                                    modifier = Modifier.fillMaxSize()
+                                ) {
+                                    Text(
+                                        text = label,
+                                        fontSize = 10.sp,
+                                        fontWeight = if (isChosen) FontWeight.ExtraBold else FontWeight.SemiBold,
+                                        color = if (isChosen) Color.White else PrimaryTeal,
+                                        textAlign = TextAlign.Center
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    // Row 2: 50, 100
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        val row2Units = listOf(
+                            50 to "٥٠ قطعة",
+                            100 to "١٠٠ قطعة"
+                        )
+                        row2Units.forEach { (qty, label) ->
+                            val isChosen = selectedQuantity == qty
+                            Surface(
+                                onClick = { onQuantityConfirmed(qty) },
+                                shape = RoundedCornerShape(8.dp),
+                                color = if (isChosen) PrimaryTeal else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
+                                border = BorderStroke(
+                                    1.dp,
+                                    if (isChosen) PrimaryTeal else MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)
+                                ),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(28.dp)
+                                    .testTag("card_unit_${medication.id}_$qty")
+                            ) {
+                                Box(
+                                    contentAlignment = Alignment.Center,
+                                    modifier = Modifier.fillMaxSize()
+                                ) {
+                                    Text(
+                                        text = label,
+                                        fontSize = 10.sp,
+                                        fontWeight = if (isChosen) FontWeight.ExtraBold else FontWeight.SemiBold,
+                                        color = if (isChosen) Color.White else PrimaryTeal,
+                                        textAlign = TextAlign.Center
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    // 2) Responsive Stepper Controls: Minus (-), Count / Subtotal, Plus (+)
+                    Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(top = 8.dp)
                             .background(
-                                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
+                                if (isSelected) TealContainer.copy(alpha = 0.45f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
                                 RoundedCornerShape(12.dp)
                             )
-                            .padding(8.dp)
-                            .testTag("inline_qty_box_${medication.id}")
+                            .padding(horizontal = 4.dp, vertical = 3.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Text(
-                            text = "حدد العدد المطلوب:",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = PrimaryTeal
-                        )
-
-                        Spacer(modifier = Modifier.height(6.dp))
-
-                        // Stepper row (- [qty] +)
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.Center
+                        // Minus Button (-)
+                        RepeatingIconButton(
+                            onAction = { onQuantityConfirmed((selectedQuantity - 1).coerceAtLeast(0)) },
+                            enabled = selectedQuantity > 0,
+                            modifier = Modifier
+                                .size(32.dp)
+                                .clip(CircleShape)
+                                .background(
+                                    if (selectedQuantity > 0) MaterialTheme.colorScheme.surface else Color.Transparent
+                                )
+                                .testTag("card_minus_${medication.id}")
                         ) {
-                            IconButton(
-                                onClick = { tempQuantity = (tempQuantity - 1).coerceAtLeast(0) },
-                                modifier = Modifier
-                                    .size(32.dp)
-                                    .clip(CircleShape)
-                                    .background(MaterialTheme.colorScheme.surface)
-                                    .testTag("inline_minus_${medication.id}")
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Remove,
-                                    contentDescription = "إنقاص",
-                                    tint = PrimaryTeal,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                            }
+                            Icon(
+                                imageVector = Icons.Default.Remove,
+                                contentDescription = "إنقاص 1",
+                                tint = if (selectedQuantity > 0) PrimaryTeal else MaterialTheme.colorScheme.outline.copy(alpha = 0.4f),
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
 
-                            Box(
-                                modifier = Modifier
-                                    .width(50.dp)
-                                    .padding(horizontal = 4.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
+                        // Center Quantity and Label (Click to open full dialog)
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier.clickable { showNumberPickerDialog = true }
+                        ) {
+                            Text(
+                                text = "$selectedQuantity",
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = if (isSelected) PrimaryTeal else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            if (selectedQuantity == 24) {
                                 Text(
-                                    text = "$tempQuantity",
-                                    fontSize = 16.sp,
+                                    text = "كارتون واحد",
+                                    fontSize = 9.sp,
                                     fontWeight = FontWeight.Bold,
-                                    color = PrimaryTeal,
-                                    textAlign = TextAlign.Center
+                                    color = Color(0xFFB45309)
                                 )
-                            }
-
-                            IconButton(
-                                onClick = { tempQuantity += 1 },
-                                modifier = Modifier
-                                    .size(32.dp)
-                                    .clip(CircleShape)
-                                    .background(PrimaryTeal)
-                                    .testTag("inline_plus_${medication.id}")
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Add,
-                                    contentDescription = "زيادة",
-                                    tint = Color.White,
-                                    modifier = Modifier.size(16.dp)
+                            } else if (selectedQuantity > 0 && medication.unitPrice > 0) {
+                                Text(
+                                    text = formatIraqiDinar(selectedQuantity * medication.unitPrice),
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = SecondaryCyan
                                 )
                             }
                         }
 
-                        // Quick buttons (1, 2, 5, 10, 20)
-                        Row(
+                        // Plus Button (+)
+                        RepeatingIconButton(
+                            onAction = { onQuantityConfirmed(selectedQuantity + 1) },
                             modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 6.dp),
-                            horizontalArrangement = Arrangement.SpaceEvenly
+                                .size(32.dp)
+                                .clip(CircleShape)
+                                .background(PrimaryTeal)
+                                .testTag("card_plus_${medication.id}")
                         ) {
-                            listOf(1, 2, 5, 10, 20).forEach { num ->
+                            Icon(
+                                imageVector = Icons.Default.Add,
+                                contentDescription = "زيادة 1",
+                                tint = Color.White,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Direct Quantity Dialog when tapping medicine photo: Increment 10 by 10 with continuous press
+    if (showNumberPickerDialog) {
+        var dialogQuantity by remember(selectedQuantity, showNumberPickerDialog) {
+            mutableIntStateOf(if (selectedQuantity > 0) selectedQuantity else 10)
+        }
+
+        AlertDialog(
+            onDismissRequest = { showNumberPickerDialog = false },
+            title = {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Medication,
+                        contentDescription = null,
+                        tint = PrimaryTeal,
+                        modifier = Modifier.size(28.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Column {
+                        Text(
+                            text = medication.tradeName,
+                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                        Text(
+                            text = "${medication.dosageForm} • ${medication.packageUnit}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            },
+            text = {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = "اختر من الوحدات السريعة أو استخدم أزرار (+) و (-) للتحكم الدقيق:",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center
+                    )
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    // 5 Requested Unit Options Grid: قطعة واحدة، عشر قطع، 24، 50، 100
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        // Row 1: قطعة واحدة (1), عشر قطع (10), 24 (كارتون واحد)
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            val optionsRow1 = listOf(
+                                1 to "قطعة واحدة (1)",
+                                10 to "عشر قطع (10)",
+                                24 to "24 (كارتون واحد)"
+                            )
+                            optionsRow1.forEach { (qty, label) ->
+                                val isSelectedUnit = dialogQuantity == qty
                                 Surface(
-                                    onClick = { tempQuantity = num },
-                                    shape = RoundedCornerShape(8.dp),
-                                    color = if (tempQuantity == num) PrimaryTeal else MaterialTheme.colorScheme.surface,
-                                    modifier = Modifier.size(width = 28.dp, height = 24.dp)
+                                    onClick = { dialogQuantity = qty },
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = if (isSelectedUnit) PrimaryTeal else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
+                                    border = BorderStroke(
+                                        1.5.dp,
+                                        if (isSelectedUnit) PrimaryTeal else MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)
+                                    ),
+                                    shadowElevation = if (isSelectedUnit) 2.dp else 0.dp,
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(44.dp)
+                                        .testTag("unit_opt_$qty")
                                 ) {
-                                    Box(contentAlignment = Alignment.Center) {
+                                    Box(
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentAlignment = Alignment.Center
+                                    ) {
                                         Text(
-                                            text = "$num",
-                                            fontSize = 10.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = if (tempQuantity == num) Color.White else MaterialTheme.colorScheme.onSurface
+                                            text = label,
+                                            fontSize = 11.sp,
+                                            fontWeight = if (isSelectedUnit) FontWeight.ExtraBold else FontWeight.Bold,
+                                            color = if (isSelectedUnit) Color.White else PrimaryTeal,
+                                            textAlign = TextAlign.Center
                                         )
                                     }
                                 }
                             }
                         }
 
-                        // Action Buttons: OK (أوكي) & Cancel (إلغاء)
+                        // Row 2: 50, 100
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Button(
-                                onClick = {
-                                    onQuantityConfirmed(tempQuantity)
-                                    isExpandedForQuantity = false
-                                },
-                                colors = ButtonDefaults.buttonColors(containerColor = PrimaryTeal),
-                                shape = RoundedCornerShape(8.dp),
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .height(34.dp)
-                                    .testTag("inline_ok_btn_${medication.id}")
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Check,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(14.dp)
-                                )
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text(
-                                    text = "أوكي",
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
-
-                            Surface(
-                                onClick = { isExpandedForQuantity = false },
-                                shape = RoundedCornerShape(8.dp),
-                                color = MaterialTheme.colorScheme.surface,
-                                modifier = Modifier.height(34.dp)
-                            ) {
-                                Box(
-                                    modifier = Modifier.padding(horizontal = 8.dp),
-                                    contentAlignment = Alignment.Center
+                            val optionsRow2 = listOf(
+                                50 to "50 قطعة",
+                                100 to "100 قطعة"
+                            )
+                            optionsRow2.forEach { (qty, label) ->
+                                val isSelectedUnit = dialogQuantity == qty
+                                Surface(
+                                    onClick = { dialogQuantity = qty },
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = if (isSelectedUnit) PrimaryTeal else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
+                                    border = BorderStroke(
+                                        1.5.dp,
+                                        if (isSelectedUnit) PrimaryTeal else MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)
+                                    ),
+                                    shadowElevation = if (isSelectedUnit) 2.dp else 0.dp,
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(42.dp)
+                                        .testTag("unit_opt_$qty")
                                 ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Close,
-                                        contentDescription = "إلغاء",
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.size(16.dp)
-                                    )
+                                    Box(
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = label,
+                                            fontSize = 12.sp,
+                                            fontWeight = if (isSelectedUnit) FontWeight.ExtraBold else FontWeight.Bold,
+                                            color = if (isSelectedUnit) Color.White else PrimaryTeal,
+                                            textAlign = TextAlign.Center
+                                        )
+                                    }
                                 }
                             }
                         }
                     }
+
+                    Spacer(modifier = Modifier.height(18.dp))
+
+                    // Responsive Stepper Controls: Minus (-) and Plus (+) buttons
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        // Minus (-) Button (fast response: single tap decrements, hold repeats smoothly)
+                        RepeatingIconButton(
+                            onAction = { dialogQuantity = (dialogQuantity - 1).coerceAtLeast(0) },
+                            enabled = dialogQuantity > 0,
+                            initialDelayMillis = 280L,
+                            repeatIntervalMillis = 60L,
+                            modifier = Modifier
+                                .size(54.dp)
+                                .clip(CircleShape)
+                                .background(
+                                    if (dialogQuantity > 0) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+                                )
+                                .testTag("dialog_minus_btn")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Remove,
+                                contentDescription = "إنقاص الكمية (-)",
+                                tint = if (dialogQuantity > 0) PrimaryTeal else MaterialTheme.colorScheme.outline,
+                                modifier = Modifier.size(26.dp)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.width(14.dp))
+
+                        // Quantity Display Card
+                        Surface(
+                            shape = RoundedCornerShape(16.dp),
+                            color = TealContainer.copy(alpha = 0.4f),
+                            border = BorderStroke(1.5.dp, PrimaryTeal),
+                            modifier = Modifier
+                                .width(140.dp)
+                                .height(72.dp)
+                        ) {
+                            Column(
+                                modifier = Modifier.fillMaxSize(),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center
+                            ) {
+                                Text(
+                                    text = "$dialogQuantity",
+                                    fontSize = 28.sp,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = PrimaryTeal,
+                                    textAlign = TextAlign.Center
+                                )
+                                val unitDesc = when (dialogQuantity) {
+                                    1 -> "قطعة واحدة (١ ${medication.packageUnit})"
+                                    10 -> "عشر قطع (١٠ ${medication.packageUnit})"
+                                    24 -> "كارتون واحد (٢٤ ${medication.packageUnit})"
+                                    50 -> "٥٠ ${medication.packageUnit}"
+                                    100 -> "١٠٠ ${medication.packageUnit}"
+                                    else -> "${toArabicDigits(dialogQuantity)} ${medication.packageUnit}"
+                                }
+                                Text(
+                                    text = unitDesc,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = if (dialogQuantity == 24) Color(0xFFB45309) else MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.width(14.dp))
+
+                        // Plus (+) Button (fast response: single tap increments, hold repeats smoothly)
+                        RepeatingIconButton(
+                            onAction = { dialogQuantity += 1 },
+                            initialDelayMillis = 280L,
+                            repeatIntervalMillis = 60L,
+                            modifier = Modifier
+                                .size(54.dp)
+                                .clip(CircleShape)
+                                .background(PrimaryTeal)
+                                .testTag("dialog_plus_btn")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Add,
+                                contentDescription = "زيادة الكمية (+)",
+                                tint = Color.White,
+                                modifier = Modifier.size(28.dp)
+                            )
+                        }
+                    }
+
+                    // Price preview if price available
+                    if (medication.unitPrice > 0 && dialogQuantity > 0) {
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Text(
+                            text = "المبلغ: ${formatIraqiDinar(dialogQuantity * medication.unitPrice)}",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = SecondaryCyan
+                        )
+                    }
+
+                    if (dialogQuantity > 0 || selectedQuantity > 0) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        TextButton(
+                            onClick = { dialogQuantity = 0 },
+                            colors = ButtonDefaults.textButtonColors(
+                                contentColor = MaterialTheme.colorScheme.outline
+                            )
+                        ) {
+                            Text("تصفير العداد (0)")
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        onQuantityConfirmed(dialogQuantity)
+                        showNumberPickerDialog = false
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryTeal),
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier.testTag("dialog_confirm_qty_btn")
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Check,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = if (dialogQuantity == 24) "تأكيد طلب كارتون واحد (24)" else if (dialogQuantity > 0) "تأكيد طلب ($dialogQuantity)" else "حفظ (إلغاء التحديد)",
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showNumberPickerDialog = false }) {
+                    Text("إلغاء")
                 }
             }
-        }
+        )
     }
 }

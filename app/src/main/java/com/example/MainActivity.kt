@@ -171,6 +171,7 @@ fun PharmaAppContent(viewModel: PharmaOrderViewModel) {
                     onAddNewMedicationWithImage = { viewModel.addMedication(it) },
                     onDeleteMedication = { viewModel.deleteMedication(it) },
                     onChangePharmacyName = { showPharmacyNameDialog = true },
+                    onUpdateCartItemQuantity = { id, qty -> viewModel.updateCartItemQuantity(id, qty) },
                     modifier = Modifier.padding(innerPadding)
                 )
             }

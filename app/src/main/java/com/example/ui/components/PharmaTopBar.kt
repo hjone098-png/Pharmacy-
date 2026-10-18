@@ -67,8 +67,14 @@ fun PharmaTopBar(
                 )
 
                 // Quick Pharmacy & Location Chip (Clicking it directly opens the pharmacy & location dialog)
-                val displayName = currentPharmacyName.ifBlank { "السنار" }
-                val displayLocation = currentPharmacyLocation.ifBlank { "حي سومر" }
+                val displayName = currentPharmacyName.trim()
+                val displayLocation = currentPharmacyLocation.trim()
+                val chipText = when {
+                    displayName.isNotBlank() && displayLocation.isNotBlank() -> "ص. $displayName / $displayLocation (تعديل)"
+                    displayName.isNotBlank() -> "ص. $displayName (تعديل)"
+                    displayLocation.isNotBlank() -> "$displayLocation (تعديل)"
+                    else -> "تحديد الصيدلية والموقع (+)"
+                }
 
                 Surface(
                     shape = RoundedCornerShape(12.dp),
@@ -89,7 +95,7 @@ fun PharmaTopBar(
                         )
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(
-                            text = "ص. $displayName / $displayLocation (تعديل)",
+                            text = chipText,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.SemiBold,
                             color = PrimaryTeal,

@@ -307,14 +307,22 @@ fun OrderHistoryCard(
             Spacer(modifier = Modifier.height(6.dp))
 
             // Pharmacy Name and Location
-            val cleanPharm = if (order.pharmacyName.startsWith("ص.") || order.pharmacyName.startsWith("ص /") || order.pharmacyName.startsWith("صيدلية")) {
-                order.pharmacyName
-            } else {
-                "ص. ${order.pharmacyName}"
+            val cleanPharm = when {
+                order.pharmacyName.isBlank() -> ""
+                order.pharmacyName.startsWith("ص.") || order.pharmacyName.startsWith("ص /") || order.pharmacyName.startsWith("صيدلية") -> order.pharmacyName
+                else -> "ص. ${order.pharmacyName}"
             }
-            val locationPart = if (order.fullAddress.isNotBlank()) " / ${order.fullAddress}" else ""
+            val locationPart = if (order.fullAddress.isNotBlank()) {
+                if (cleanPharm.isNotBlank()) " / ${order.fullAddress}" else order.fullAddress
+            } else ""
+            val titleText = when {
+                cleanPharm.isNotBlank() && locationPart.isNotBlank() -> "$cleanPharm$locationPart"
+                cleanPharm.isNotBlank() -> cleanPharm
+                locationPart.isNotBlank() -> locationPart
+                else -> "طلبية بدون اسم صيدلية"
+            }
             Text(
-                text = "$cleanPharm$locationPart",
+                text = titleText,
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Bold,
                 color = PrimaryTeal

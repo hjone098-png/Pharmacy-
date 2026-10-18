@@ -350,6 +350,19 @@ class PharmaOrderViewModel(application: Application) : AndroidViewModel(applicat
         _cartItems.value = current
     }
 
+    fun updateCartItemQuantity(medicationId: Long, newQuantity: Int) {
+        val current = _cartItems.value.toMutableMap()
+        if (newQuantity <= 0) {
+            current.remove(medicationId)
+        } else {
+            val existing = current[medicationId]
+            if (existing != null) {
+                current[medicationId] = existing.copy(quantity = newQuantity)
+            }
+        }
+        _cartItems.value = current
+    }
+
     fun clearCart() {
         _cartItems.value = emptyMap()
     }
