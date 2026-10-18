@@ -7,8 +7,10 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.rememberScrollState
@@ -31,6 +33,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DeleteOutline
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Medication
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.AlertDialog
@@ -70,12 +73,14 @@ import com.example.ui.theme.StockOkGreen
 import com.example.ui.theme.TealContainer
 import com.example.ui.util.formatIraqiDinar
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun MedicineGridCard(
     medication: Medication,
     selectedQuantity: Int,
     onQuantityConfirmed: (Int) -> Unit,
     onDeleteMedication: (() -> Unit)? = null,
+    onEditMedication: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     var showNumberPickerDialog by remember { mutableStateOf(false) }
@@ -98,15 +103,20 @@ fun MedicineGridCard(
             .testTag("med_grid_card_${medication.id}")
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
-            // Medicine Image Container - Click to adjust quantity (+10 continuous or 1 carton)
+            // Medicine Image Container - Click to adjust quantity, Long Press to Edit
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .aspectRatio(1.25f)
                     .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
-                    .clickable {
-                        showNumberPickerDialog = true
-                    }
+                    .combinedClickable(
+                        onClick = {
+                            showNumberPickerDialog = true
+                        },
+                        onLongClick = {
+                            onEditMedication?.invoke()
+                        }
+                    )
             ) {
                 if (medication.imageUrl.isNotBlank()) {
                     AsyncImage(
@@ -171,22 +181,34 @@ fun MedicineGridCard(
                     }
                 }
 
-                // Delete button (Top-End) if enabled
-                if (onDeleteMedication != null) {
+                // Edit button (Top-End) - opens edit dialog and indicates edit ability
+                if (onEditMedication != null) {
                     Surface(
-                        shape = CircleShape,
-                        color = Color.Black.copy(alpha = 0.5f),
+                        shape = RoundedCornerShape(bottomStart = 10.dp),
+                        color = Color.Black.copy(alpha = 0.55f),
                         modifier = Modifier
                             .align(Alignment.TopEnd)
-                            .padding(6.dp)
-                            .clickable { onDeleteMedication() }
+                            .clickable { onEditMedication() }
+                            .testTag("edit_med_btn_${medication.id}")
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.DeleteOutline,
-                            contentDescription = "حذف الدواء",
-                            tint = Color.White,
-                            modifier = Modifier.padding(4.dp).size(16.dp)
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Edit,
+                                contentDescription = "تعديل المادة",
+                                tint = Color.White,
+                                modifier = Modifier.size(13.dp)
+                            )
+                            Spacer(modifier = Modifier.width(3.dp))
+                            Text(
+                                text = "تعديل",
+                                color = Color.White,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
                     }
                 }
             }

@@ -428,7 +428,21 @@ class PharmaOrderViewModel(application: Application) : AndroidViewModel(applicat
     fun updateMedication(medication: Medication) {
         viewModelScope.launch {
             medicationRepository.update(medication)
-            Toast.makeText(getApplication(), "تم تحديث بيانات الدواء", Toast.LENGTH_SHORT).show()
+            val currentCart = _cartItems.value.toMutableMap()
+            val existing = currentCart[medication.id]
+            if (existing != null) {
+                currentCart[medication.id] = existing.copy(
+                    tradeName = medication.tradeName,
+                    scientificName = medication.scientificName,
+                    category = medication.category,
+                    dosageForm = medication.dosageForm,
+                    packageUnit = medication.packageUnit,
+                    unitPrice = medication.unitPrice,
+                    imageUrl = medication.imageUrl
+                )
+                _cartItems.value = currentCart
+            }
+            Toast.makeText(getApplication(), "تم تحديث بيانات الدواء بنجاح", Toast.LENGTH_SHORT).show()
         }
     }
 

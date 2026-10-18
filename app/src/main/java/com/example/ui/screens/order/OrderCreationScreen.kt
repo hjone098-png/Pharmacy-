@@ -129,11 +129,13 @@ fun OrderCreationScreen(
     onProceedToSummary: (depotName: String) -> Unit,
     onAddNewMedicationWithImage: (Medication) -> Unit,
     onDeleteMedication: (Medication) -> Unit,
+    onUpdateMedication: (Medication) -> Unit = {},
     onChangePharmacyName: () -> Unit,
     onUpdateCartItemQuantity: ((Long, Int) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     var showAddMedicineDialog by remember { mutableStateOf(false) }
+    var medicationToEdit by remember { mutableStateOf<Medication?>(null) }
     var showOrderSummaryPreview by remember { mutableStateOf(false) }
     var showDepotDialog by remember { mutableStateOf(false) }
     var selectedDepotName by remember(currentOrderDepot) {
@@ -594,6 +596,9 @@ fun OrderCreationScreen(
                             },
                             onDeleteMedication = {
                                 onDeleteMedication(medication)
+                            },
+                            onEditMedication = {
+                                medicationToEdit = medication
                             }
                         )
                     }
