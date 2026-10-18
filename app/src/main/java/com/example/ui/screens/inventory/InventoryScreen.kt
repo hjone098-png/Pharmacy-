@@ -36,6 +36,12 @@ import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.Medication
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
+import com.example.ui.util.ImageStorageUtil
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -563,11 +569,20 @@ fun MedicationFormDialog(
     var notes by remember { mutableStateOf(initialMedication?.notes.orEmpty()) }
     var selectedImageUri by remember { mutableStateOf<String?>(initialMedication?.imageUrl) }
 
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+    var isSavingPhoto by remember { mutableStateOf(false) }
+
     val photoPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia()
     ) { uri: Uri? ->
         if (uri != null) {
-            selectedImageUri = uri.toString()
+            coroutineScope.launch {
+                isSavingPhoto = true
+                val internalPath = ImageStorageUtil.saveImageToInternalStorage(context, uri)
+                selectedImageUri = internalPath
+                isSavingPhoto = false
+            }
         }
     }
 
@@ -590,13 +605,31 @@ fun MedicationFormDialog(
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable {
+                        .clickable(enabled = !isSavingPhoto) {
                             photoPickerLauncher.launch(
                                 PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
                             )
                         }
                 ) {
-                    if (!selectedImageUri.isNullOrBlank()) {
+                    if (isSavingPhoto) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(120.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                CircularProgressIndicator(color = PrimaryTeal, modifier = Modifier.size(28.dp))
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Text(
+                                    text = "جاري حفظ الصورة داخلياً...",
+                                    fontSize = 11.sp,
+                                    color = PrimaryTeal,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    } else if (!selectedImageUri.isNullOrBlank()) {
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -608,6 +641,35 @@ fun MedicationFormDialog(
                                 contentScale = ContentScale.Crop,
                                 modifier = Modifier.fillMaxSize()
                             )
+
+                            // Permanent internal storage badge
+                            Surface(
+                                shape = RoundedCornerShape(6.dp),
+                                color = PrimaryTeal.copy(alpha = 0.9f),
+                                modifier = Modifier
+                                    .align(Alignment.TopStart)
+                                    .padding(6.dp)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.CheckCircle,
+                                        contentDescription = null,
+                                        tint = Color.White,
+                                        modifier = Modifier.size(12.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(3.dp))
+                                    Text(
+                                        text = "محفوظة داخلياً",
+                                        color = Color.White,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+
                             Surface(
                                 shape = CircleShape,
                                 color = Color.Black.copy(alpha = 0.6f),

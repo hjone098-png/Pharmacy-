@@ -72,4 +72,39 @@ class ExampleUnitTest {
         assertEquals(10, looseUnits)
         assertEquals(24 * 1500.0 + 24 * 2000.0 + 10 * 1250.0, totalPrice, 0.001)
     }
+
+    @Test
+    fun medication_sorting_by_time_addition_and_alphabetical() {
+        val med1 = com.example.data.local.Medication(
+            id = 1,
+            tradeName = "جنى شراب",
+            updatedAt = 1000L
+        )
+        val med2 = com.example.data.local.Medication(
+            id = 2,
+            tradeName = "أوجمنتين",
+            updatedAt = 3000L
+        )
+        val med3 = com.example.data.local.Medication(
+            id = 3,
+            tradeName = "باراسيتامول",
+            updatedAt = 2000L
+        )
+        val list = listOf(med1, med2, med3)
+
+        // 1) Sort by Time Added (newest first / descending)
+        val sortedByTimeDesc = list.sortedByDescending { it.updatedAt }
+        assertEquals(listOf(med2, med3, med1), sortedByTimeDesc)
+
+        // 2) Sort by Addition Order (sequential ID ascending)
+        val sortedByIdAsc = list.sortedBy { it.id }
+        assertEquals(listOf(med1, med2, med3), sortedByIdAsc)
+
+        // 3) Sort Alphabetically (Arabic A-Z)
+        val collator = java.text.Collator.getInstance(java.util.Locale("ar"))
+        val sortedByAlphabet = list.sortedWith { a, b -> collator.compare(a.tradeName, b.tradeName) }
+        assertEquals("أوجمنتين", sortedByAlphabet[0].tradeName)
+        assertEquals("باراسيتامول", sortedByAlphabet[1].tradeName)
+        assertEquals("جنى شراب", sortedByAlphabet[2].tradeName)
+    }
 }

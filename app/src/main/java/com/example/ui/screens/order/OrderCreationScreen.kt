@@ -43,10 +43,23 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material.icons.filled.Store
+import androidx.compose.material.icons.filled.Sort
+import androidx.compose.material.icons.filled.North
+import androidx.compose.material.icons.filled.South
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.AccessTime
+import androidx.compose.material.icons.filled.FormatListNumbered
+import androidx.compose.material.icons.filled.SortByAlpha
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.ReceiptLong
 import androidx.compose.material.icons.filled.Remove
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
+import com.example.ui.util.ImageStorageUtil
+import com.example.ui.viewmodel.MedicationSortOrder
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -105,6 +118,10 @@ fun OrderCreationScreen(
     currentOrderDepot: String = "مذخر سبأ",
     searchQuery: String,
     selectedCategory: String,
+    sortOrder: MedicationSortOrder = MedicationSortOrder.TIME_ADDED,
+    sortAscending: Boolean = false,
+    onSortOrderChange: (MedicationSortOrder) -> Unit = {},
+    onToggleSortDirection: () -> Unit = {},
     onSearchQueryChange: (String) -> Unit,
     onCategoryChange: (String) -> Unit,
     onQuantityChange: (Medication, Int) -> Unit,
@@ -316,6 +333,101 @@ fun OrderCreationScreen(
                             fontWeight = FontWeight.Bold,
                             color = PrimaryTeal
                         )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(6.dp))
+
+                // Sort Options Bar (وقت الإضافة / ترتيب الإضافة / حسب الأحرف الأبجدية)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .weight(1f)
+                            .horizontalScroll(rememberScrollState()),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Sort,
+                            contentDescription = "فرز",
+                            tint = PrimaryTeal,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Text(
+                            text = "فرز حسب:",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+
+                        val sortOpts = listOf(
+                            Triple(MedicationSortOrder.TIME_ADDED, "وقت الإضافة", Icons.Default.AccessTime),
+                            Triple(MedicationSortOrder.ADDITION_ORDER, "ترتيب الإضافة", Icons.Default.FormatListNumbered),
+                            Triple(MedicationSortOrder.ALPHABETICAL, "الأبجدية (أ-ي)", Icons.Default.SortByAlpha)
+                        )
+
+                        sortOpts.forEach { (order, label, icon) ->
+                            val isSelected = sortOrder == order
+                            FilterChip(
+                                selected = isSelected,
+                                onClick = { onSortOrderChange(order) },
+                                label = {
+                                    Text(
+                                        text = label,
+                                        fontSize = 11.sp,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                    )
+                                },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = icon,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(13.dp)
+                                    )
+                                },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = PrimaryTeal,
+                                    selectedLabelColor = Color.White,
+                                    selectedLeadingIconColor = Color.White
+                                ),
+                                modifier = Modifier.testTag("sort_chip_${order.name.lowercase()}")
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.width(6.dp))
+
+                    // Sort Direction Toggle Button (تصاعدي / تنازلي)
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                        modifier = Modifier
+                            .height(32.dp)
+                            .clickable { onToggleSortDirection() }
+                            .testTag("sort_direction_toggle")
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(horizontal = 8.dp)
+                        ) {
+                            Icon(
+                                imageVector = if (sortAscending) Icons.Default.North else Icons.Default.South,
+                                contentDescription = if (sortAscending) "تصاعدي" else "تنازلي",
+                                tint = PrimaryTeal,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(2.dp))
+                            Text(
+                                text = if (sortAscending) "تصاعدي" else "تنازلي",
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = PrimaryTeal
+                            )
+                        }
                     }
                 }
             }
@@ -691,18 +803,27 @@ fun AddMedicineWithPhotoDialog(
     onDismiss: () -> Unit,
     onConfirm: (Medication) -> Unit
 ) {
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+
     var tradeName by remember { mutableStateOf("") }
     var priceStr by remember { mutableStateOf("") }
     var packageUnit by remember { mutableStateOf("علبة") }
     var dosageForm by remember { mutableStateOf("أقراص") }
     var selectedImageUri by remember { mutableStateOf<String?>(null) }
+    var isSavingPhoto by remember { mutableStateOf(false) }
     var hasAttempted by remember { mutableStateOf(false) }
 
     val photoPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia()
     ) { uri: Uri? ->
         if (uri != null) {
-            selectedImageUri = uri.toString()
+            coroutineScope.launch {
+                isSavingPhoto = true
+                val internalPath = ImageStorageUtil.saveImageToInternalStorage(context, uri)
+                selectedImageUri = internalPath
+                isSavingPhoto = false
+            }
         }
     }
 
@@ -724,19 +845,37 @@ fun AddMedicineWithPhotoDialog(
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                // Photo Picker Card
+                // Photo Picker Card with Internal Storage
                 Card(
                     shape = RoundedCornerShape(14.dp),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable {
+                        .clickable(enabled = !isSavingPhoto) {
                             photoPickerLauncher.launch(
                                 PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
                             )
                         }
                 ) {
-                    if (selectedImageUri != null) {
+                    if (isSavingPhoto) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(160.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                CircularProgressIndicator(color = PrimaryTeal, modifier = Modifier.size(32.dp))
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    text = "جاري حفظ الصورة في ذاكرة التطبيق الدائمة...",
+                                    fontSize = 11.sp,
+                                    color = PrimaryTeal,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    } else if (selectedImageUri != null) {
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -748,6 +887,35 @@ fun AddMedicineWithPhotoDialog(
                                 contentScale = ContentScale.Crop,
                                 modifier = Modifier.fillMaxSize()
                             )
+
+                            // Permanent internal storage badge
+                            Surface(
+                                shape = RoundedCornerShape(6.dp),
+                                color = PrimaryTeal.copy(alpha = 0.9f),
+                                modifier = Modifier
+                                    .align(Alignment.TopStart)
+                                    .padding(8.dp)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.CheckCircle,
+                                        contentDescription = null,
+                                        tint = Color.White,
+                                        modifier = Modifier.size(13.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        text = "محفوظة داخلياً في التطبيق",
+                                        color = Color.White,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+
                             Surface(
                                 shape = CircleShape,
                                 color = Color.Black.copy(alpha = 0.6f),

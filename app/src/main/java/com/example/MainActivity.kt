@@ -12,13 +12,16 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.LocalPharmacy
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material3.AlertDialog
+import com.example.ui.viewmodel.MedicationSortOrder
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FabPosition
@@ -97,6 +100,9 @@ fun PharmaAppContent(viewModel: PharmaOrderViewModel) {
     val orderSupplier by viewModel.orderSupplier.collectAsStateWithLifecycle()
     val orderNotes by viewModel.orderNotes.collectAsStateWithLifecycle()
 
+    val medicationSortOrder by viewModel.medicationSortOrder.collectAsStateWithLifecycle()
+    val sortAscending by viewModel.sortAscending.collectAsStateWithLifecycle()
+
     val lastGeneratedOrder by viewModel.lastGeneratedOrder.collectAsStateWithLifecycle()
     val orderHistory by viewModel.orderHistory.collectAsStateWithLifecycle()
 
@@ -130,17 +136,14 @@ fun PharmaAppContent(viewModel: PharmaOrderViewModel) {
                     onClick = { showPharmacyNameDialog = true },
                     containerColor = PrimaryTeal,
                     contentColor = Color.White,
-                    shape = RoundedCornerShape(16.dp),
+                    shape = CircleShape,
                     modifier = Modifier.testTag("fab_pharmacy_plus")
                 ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(Icons.Default.Add, contentDescription = "بدء طلبية باسم الصيدلية والموقع")
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text("الصيدلية والموقع (+)", fontWeight = FontWeight.Bold)
-                    }
+                    Icon(
+                        imageVector = Icons.Default.Add,
+                        contentDescription = "بدء طلبية باسم الصيدلية والموقع",
+                        modifier = Modifier.size(28.dp)
+                    )
                 }
             }
         }
@@ -156,6 +159,10 @@ fun PharmaAppContent(viewModel: PharmaOrderViewModel) {
                     currentOrderDepot = orderDepotName,
                     searchQuery = orderSearchQuery,
                     selectedCategory = selectedCategory,
+                    sortOrder = medicationSortOrder,
+                    sortAscending = sortAscending,
+                    onSortOrderChange = { viewModel.setSortOrder(it) },
+                    onToggleSortDirection = { viewModel.toggleSortDirection() },
                     onSearchQueryChange = { viewModel.setOrderSearchQuery(it) },
                     onCategoryChange = { viewModel.setSelectedCategory(it) },
                     onQuantityChange = { med, qty -> viewModel.setItemQuantity(med, qty) },

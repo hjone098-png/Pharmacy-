@@ -79,13 +79,59 @@ class PharmaOrderViewModel(application: Application) : AndroidViewModel(applicat
             initialValue = emptyList()
         )
 
-    // Filtered Medications for Order Catalog
+    // Medication Sort Options (وقت الإضافة / ترتيب الإضافة / حسب الأحرف الأبجدية)
+    private val _medicationSortOrder = MutableStateFlow(MedicationSortOrder.TIME_ADDED)
+    val medicationSortOrder: StateFlow<MedicationSortOrder> = _medicationSortOrder.asStateFlow()
+
+    private val _sortAscending = MutableStateFlow(false)
+    val sortAscending: StateFlow<Boolean> = _sortAscending.asStateFlow()
+
+    fun setSortOrder(order: MedicationSortOrder) {
+        if (_medicationSortOrder.value == order) {
+            _sortAscending.value = !_sortAscending.value
+        } else {
+            _medicationSortOrder.value = order
+            // When switching to alphabetical, default to A-Z (ascending)
+            // When switching to time or addition order, default to newest first (descending)
+            _sortAscending.value = (order == MedicationSortOrder.ALPHABETICAL)
+        }
+    }
+
+    fun toggleSortDirection() {
+        _sortAscending.value = !_sortAscending.value
+    }
+
+    private fun sortMedications(
+        list: List<Medication>,
+        sortOrder: MedicationSortOrder,
+        ascending: Boolean
+    ): List<Medication> {
+        val collator = java.text.Collator.getInstance(java.util.Locale("ar"))
+        return when (sortOrder) {
+            MedicationSortOrder.TIME_ADDED -> {
+                if (ascending) list.sortedBy { it.updatedAt }
+                else list.sortedByDescending { it.updatedAt }
+            }
+            MedicationSortOrder.ADDITION_ORDER -> {
+                if (ascending) list.sortedBy { it.id }
+                else list.sortedByDescending { it.id }
+            }
+            MedicationSortOrder.ALPHABETICAL -> {
+                if (ascending) list.sortedWith { a, b -> collator.compare(a.tradeName, b.tradeName) }
+                else list.sortedWith { a, b -> collator.compare(b.tradeName, a.tradeName) }
+            }
+        }
+    }
+
+    // Filtered Medications for Order Catalog with Sorting
     val catalogMedications: StateFlow<List<Medication>> = combine(
         allMedications,
         _orderSearchQuery,
-        _selectedCategory
-    ) { list, query, category ->
-        list.filter { med ->
+        _selectedCategory,
+        _medicationSortOrder,
+        _sortAscending
+    ) { list, query, category, sortOrder, ascending ->
+        val filtered = list.filter { med ->
             val matchesCategory = (category == "الكل" || med.category == category)
             val matchesQuery = query.isBlank() ||
                     med.tradeName.contains(query, ignoreCase = true) ||
@@ -94,19 +140,22 @@ class PharmaOrderViewModel(application: Application) : AndroidViewModel(applicat
                     med.dosageForm.contains(query, ignoreCase = true)
             matchesCategory && matchesQuery
         }
+        sortMedications(filtered, sortOrder, ascending)
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = emptyList()
     )
 
-    // Filtered Medications for Inventory Management
+    // Filtered Medications for Inventory Management with Sorting
     val inventoryMedications: StateFlow<List<Medication>> = combine(
         allMedications,
         _inventorySearchQuery,
-        _inventoryFilter
-    ) { list, query, filter ->
-        list.filter { med ->
+        _inventoryFilter,
+        _medicationSortOrder,
+        _sortAscending
+    ) { list, query, filter, sortOrder, ascending ->
+        val filtered = list.filter { med ->
             val matchesQuery = query.isBlank() ||
                     med.tradeName.contains(query, ignoreCase = true) ||
                     med.scientificName.contains(query, ignoreCase = true) ||
@@ -120,6 +169,7 @@ class PharmaOrderViewModel(application: Application) : AndroidViewModel(applicat
             }
             matchesQuery && matchesFilter
         }
+        sortMedications(filtered, sortOrder, ascending)
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
